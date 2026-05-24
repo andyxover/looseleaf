@@ -8,7 +8,7 @@ import { PhotoImage } from "@/components/PhotoImage";
 type EntryCardProps = {
   id: string;
   title: string;
-  createdAt: Date;
+  date: Date;
   cover?: string | null;
   index: number;
   featured?: boolean;
@@ -17,14 +17,14 @@ type EntryCardProps = {
 export function EntryCard({
   id,
   title,
-  createdAt,
+  date,
   cover,
   index,
   featured = false,
 }: EntryCardProps) {
   const reduced = useReducedMotion();
   const delay = reduced ? 0 : Math.min(index, 8) * 0.06;
-  const date = createdAt.toLocaleDateString(undefined, {
+  const dateLabel = date.toLocaleDateString(undefined, {
     month: "long",
     day: "numeric",
     year: "numeric",
@@ -67,7 +67,7 @@ export function EntryCard({
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 p-8 text-white sm:p-10">
                 <div className="mb-3 font-mono text-[10px] uppercase tracking-[0.25em] opacity-70">
-                  Latest · {date}
+                  Latest · {dateLabel}
                 </div>
                 <h2 className="font-serif text-3xl leading-tight tracking-tight sm:text-5xl">
                   {title}
@@ -79,7 +79,7 @@ export function EntryCard({
         {!featured && (
           <div className="mt-4">
             <time className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-              {date}
+              {dateLabel}
             </time>
             <h2 className="mt-1.5 font-serif text-xl leading-snug tracking-tight transition group-hover:text-zinc-500 dark:group-hover:text-zinc-400">
               {title}

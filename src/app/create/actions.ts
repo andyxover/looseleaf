@@ -92,6 +92,11 @@ export async function createPage(
   if (!(await isEditor())) return { error: "Sign in first." };
 
   const summary = String(formData.get("summary") ?? "").trim();
+  const entryDateRaw = String(formData.get("entryDate") ?? "").trim();
+  const entryDate = entryDateRaw ? new Date(entryDateRaw) : new Date();
+  if (Number.isNaN(entryDate.getTime())) {
+    return { error: "Please enter a valid entry date." };
+  }
   const files = formData
     .getAll("photos")
     .filter((v): v is File => v instanceof File && v.size > 0);
@@ -181,6 +186,7 @@ export async function createPage(
         title: layout.title,
         summary,
         layoutJson: JSON.stringify(layout),
+        entryDate,
         photos: {
           create: saved.map((s, i) => ({
             filePath: s.filePath,

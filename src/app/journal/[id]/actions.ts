@@ -16,17 +16,27 @@ const SUPPORTED_MIME = new Set<string>([
   "image/gif",
 ]);
 
-export async function updatePageLayout(id: string, layout: Layout) {
+export async function updatePageLayout(
+  id: string,
+  layout: Layout,
+  entryDate?: string,
+) {
   await requireEditor();
   if (!layout || typeof layout !== "object") throw new Error("Invalid layout");
   if (typeof layout.title !== "string") throw new Error("Invalid title");
   if (!Array.isArray(layout.blocks)) throw new Error("Invalid blocks");
+
+  const parsedEntryDate = entryDate ? new Date(entryDate) : null;
+  if (parsedEntryDate && Number.isNaN(parsedEntryDate.getTime())) {
+    throw new Error("Invalid entry date");
+  }
 
   await prisma.page.update({
     where: { id },
     data: {
       title: layout.title,
       layoutJson: JSON.stringify(layout),
+      ...(parsedEntryDate ? { entryDate: parsedEntryDate } : {}),
     },
   });
   revalidatePath(`/journal/${id}`);

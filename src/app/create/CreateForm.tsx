@@ -11,9 +11,18 @@ type Preview = { file: File; url: string };
 
 const initialState: CreatePageState = { error: null };
 
+function todayLocal() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function CreateForm() {
   const [previews, setPreviews] = useState<Preview[]>([]);
   const [summary, setSummary] = useState("");
+  const [entryDate, setEntryDate] = useState(todayLocal);
 
   async function action(
     prev: CreatePageState,
@@ -26,6 +35,7 @@ export default function CreateForm() {
       formData.append("photos", file);
     }
     formData.set("summary", summary);
+    formData.set("entryDate", entryDate);
     return createPage(prev, formData);
   }
 
@@ -105,6 +115,19 @@ export default function CreateForm() {
             ))}
           </div>
         )}
+
+        <div>
+          <label htmlFor="entry-date" className="mb-2 block text-sm font-medium">
+            When did it happen?
+          </label>
+          <input
+            id="entry-date"
+            type="date"
+            value={entryDate}
+            onChange={(e) => setEntryDate(e.target.value)}
+            className="rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-base outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-600"
+          />
+        </div>
 
         <div>
           <label htmlFor="summary" className="mb-2 block text-sm font-medium">

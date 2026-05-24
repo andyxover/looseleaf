@@ -78,17 +78,21 @@ export function EditableJournal({
   pageId,
   initialLayout,
   photos,
-  createdAt,
+  initialEntryDate,
 }: {
   pageId: string;
   initialLayout: Layout;
   photos: Photo[];
-  createdAt?: Date;
+  initialEntryDate: string;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [layout, setLayout] = useState<Layout>(initialLayout);
   const [savedLayout, setSavedLayout] = useState<Layout>(initialLayout);
+  // Date input expects YYYY-MM-DD; ISO string slice gives that prefix.
+  const initialDate = initialEntryDate.slice(0, 10);
+  const [entryDate, setEntryDate] = useState(initialDate);
+  const [savedEntryDate, setSavedEntryDate] = useState(initialDate);
   const [saving, startSaving] = useTransition();
   const [deleting, startDeleting] = useTransition();
   const [adding, setAdding] = useState(false);
@@ -99,12 +103,15 @@ export function EditableJournal({
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const dirty = JSON.stringify(layout) !== JSON.stringify(savedLayout);
+  const dirty =
+    JSON.stringify(layout) !== JSON.stringify(savedLayout) ||
+    entryDate !== savedEntryDate;
 
   function save() {
     startSaving(async () => {
-      await updatePageLayout(pageId, layout);
+      await updatePageLayout(pageId, layout, entryDate);
       setSavedLayout(layout);
+      setSavedEntryDate(entryDate);
       setMode("view");
     });
   }
@@ -112,6 +119,7 @@ export function EditableJournal({
   function cancel() {
     if (dirty && !confirm("Discard unsaved changes?")) return;
     setLayout(savedLayout);
+    setEntryDate(savedEntryDate);
     setMode("view");
   }
 
@@ -152,8 +160,9 @@ export function EditableJournal({
 
     // Commit any pending edits before adding (server will append to the saved layout).
     if (dirty) {
-      await updatePageLayout(pageId, layout);
+      await updatePageLayout(pageId, layout, entryDate);
       setSavedLayout(layout);
+      setSavedEntryDate(entryDate);
     }
 
     const fd = new FormData();
@@ -317,14 +326,16 @@ export function EditableJournal({
         <MagazinePageWithFooter
           layout={layout}
           photos={photos}
-          createdAt={createdAt}
+          createdAt={new Date(entryDate)}
         />
       ) : (
         <MagazineEditor
           layout={layout}
           photos={photos}
+          entryDate={entryDate}
           activeFramingBlock={activeFramingBlock}
           onChange={setLayout}
+          onEntryDateChange={setEntryDate}
           onReplacePhoto={openPicker}
           onRemoveFromGallery={removeFromGallery}
           onSetSpanInGallery={setSpanInGallery}
@@ -451,8 +462,10 @@ function Toolbar({
 function MagazineEditor({
   layout,
   photos,
+  entryDate,
   activeFramingBlock,
   onChange,
+  onEntryDateChange,
   onReplacePhoto,
   onRemoveFromGallery,
   onSetSpanInGallery,
@@ -462,8 +475,10 @@ function MagazineEditor({
 }: {
   layout: Layout;
   photos: Photo[];
+  entryDate: string;
   activeFramingBlock: number | null;
   onChange: (next: Layout) => void;
+  onEntryDateChange: (date: string) => void;
   onReplacePhoto: (blockIdx: number, gallerySlot?: number) => void;
   onRemoveFromGallery: (blockIdx: number, gallerySlot: number) => void;
   onSetSpanInGallery: (blockIdx: number, gallerySlot: number, span: number) => void;
@@ -508,6 +523,15 @@ function MagazineEditor({
           className="font-serif text-5xl leading-tight tracking-tight sm:text-6xl"
           placeholder="Title"
         />
+        <div className="mt-6 flex items-center justify-center gap-2 font-mono text-[10px] uppercase tracking-[0.25em] text-zinc-500">
+          <span>Entry date</span>
+          <input
+            type="date"
+            value={entryDate}
+            onChange={(e) => onEntryDateChange(e.target.value)}
+            className="rounded border border-zinc-200 bg-transparent px-2 py-1 font-mono text-[10px] uppercase tracking-[0.2em] focus:border-zinc-400 focus:outline-none dark:border-zinc-800 dark:focus:border-zinc-600"
+          />
+        </div>
         <EditableText
           value={layout.intro}
           onChange={(v) => onChange({ ...layout, intro: v })}

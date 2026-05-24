@@ -16,7 +16,7 @@ import { PhotoStrip } from "@/components/decor/PhotoStrip";
 export default async function Home() {
   const [pages, owner, editor, stripPhotos] = await Promise.all([
     prisma.page.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
       include: { photos: { orderBy: { order: "asc" }, take: 1 } },
     }),
     isOwner(),
@@ -138,7 +138,7 @@ export default async function Home() {
                 <EntryCard
                   id={featured.id}
                   title={featured.title}
-                  createdAt={featured.createdAt}
+                  date={featured.entryDate}
                   cover={featured.photos[0]?.filePath}
                   index={0}
                   featured
@@ -162,7 +162,7 @@ export default async function Home() {
                       key={page.id}
                       id={page.id}
                       title={page.title}
-                      createdAt={page.createdAt}
+                      date={page.entryDate}
                       cover={page.photos[0]?.filePath}
                       index={i + 1}
                     />

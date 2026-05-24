@@ -49,13 +49,13 @@ export default async function JournalPage({
           pageId={id}
           initialLayout={layout}
           photos={photos}
-          createdAt={page.createdAt}
+          initialEntryDate={page.entryDate.toISOString()}
         />
       ) : (
         <MagazinePageWithFooter
           layout={layout}
           photos={photos}
-          createdAt={page.createdAt}
+          createdAt={page.entryDate}
         />
       )}
     </div>
