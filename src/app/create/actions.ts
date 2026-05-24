@@ -10,7 +10,7 @@ import type {
 import { prisma } from "@/lib/prisma";
 import { anthropic } from "@/lib/anthropic";
 import { uploadImage } from "@/lib/storage";
-import { isOwner } from "@/lib/owner";
+import { isEditor } from "@/lib/owner";
 import type { Layout } from "@/lib/layout";
 
 const MODEL = "claude-sonnet-4-6";
@@ -89,7 +89,7 @@ export async function createPage(
   _prev: CreatePageState,
   formData: FormData,
 ): Promise<CreatePageState> {
-  if (!(await isOwner())) return { error: "Sign in first." };
+  if (!(await isEditor())) return { error: "Sign in first." };
 
   const summary = String(formData.get("summary") ?? "").trim();
   const files = formData

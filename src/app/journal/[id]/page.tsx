@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { EditableJournal } from "@/components/EditableJournal";
 import { MagazinePageWithFooter } from "@/components/MagazinePage";
 import { ensureDimensions } from "@/lib/ensure-dimensions";
-import { isOwner } from "@/lib/owner";
+import { isEditor } from "@/lib/owner";
 import type { Layout } from "@/lib/layout";
 
 export default async function JournalPage({
@@ -30,7 +30,7 @@ export default async function JournalPage({
     width: p.width,
     height: p.height,
   }));
-  const owner = await isOwner();
+  const owner = await isEditor();
 
   return (
     <div>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Plus, LogIn, LogOut } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
-import { isOwner } from "@/lib/owner";
+import { isOwner, isEditor } from "@/lib/owner";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 import { EntryCard } from "@/components/EntryCard";
 import { FadeIn } from "@/components/Reveal";
@@ -14,12 +14,13 @@ import { MagneticButton } from "@/components/decor/MagneticButton";
 import { PhotoStrip } from "@/components/decor/PhotoStrip";
 
 export default async function Home() {
-  const [pages, owner, stripPhotos] = await Promise.all([
+  const [pages, owner, editor, stripPhotos] = await Promise.all([
     prisma.page.findMany({
       orderBy: { createdAt: "desc" },
       include: { photos: { orderBy: { order: "asc" }, take: 1 } },
     }),
     isOwner(),
+    isEditor(),
     prisma.photo.findMany({
       orderBy: { id: "desc" },
       take: 30,
@@ -68,7 +69,7 @@ export default async function Home() {
         <FadeIn delay={0.1}>
           <div className="flex items-center gap-3">
             {showAuthChrome &&
-              (owner ? (
+              (editor ? (
                 <form action="/auth/signout" method="POST">
                   <button
                     type="submit"
@@ -88,6 +89,14 @@ export default async function Home() {
                 </Link>
               ))}
             {owner && (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+              >
+                Admin
+              </Link>
+            )}
+            {editor && (
               <MagneticButton>
                 <Link
                   href="/create"

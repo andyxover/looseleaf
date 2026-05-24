@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { uploadImage } from "@/lib/storage";
-import { requireOwner, isOwner } from "@/lib/owner";
+import { requireEditor, isEditor } from "@/lib/owner";
 import type { Block, Layout } from "@/lib/layout";
 
 const SUPPORTED_MIME = new Set<string>([
@@ -17,7 +17,7 @@ const SUPPORTED_MIME = new Set<string>([
 ]);
 
 export async function updatePageLayout(id: string, layout: Layout) {
-  await requireOwner();
+  await requireEditor();
   if (!layout || typeof layout !== "object") throw new Error("Invalid layout");
   if (typeof layout.title !== "string") throw new Error("Invalid title");
   if (!Array.isArray(layout.blocks)) throw new Error("Invalid blocks");
@@ -34,7 +34,7 @@ export async function updatePageLayout(id: string, layout: Layout) {
 }
 
 export async function deletePage(id: string) {
-  await requireOwner();
+  await requireEditor();
   await prisma.page.delete({ where: { id } });
   redirect("/");
 }
@@ -46,7 +46,7 @@ export async function addPhotosToPage(
   _prev: AddPhotosState,
   formData: FormData,
 ): Promise<AddPhotosState> {
-  if (!(await isOwner())) return { error: "Sign in first." };
+  if (!(await isEditor())) return { error: "Sign in first." };
 
   const files = formData
     .getAll("photos")

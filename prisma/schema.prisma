@@ -25,3 +25,9 @@ model Photo {
   order    Int     @default(0)
   page     Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
 }
+
+model Editor {
+  email   String   @id
+  addedAt DateTime @default(now())
+  addedBy String
+}
