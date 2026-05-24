@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Page {
+  id         String   @id @default(cuid())
+  title      String
+  summary    String
+  layoutJson String
+  createdAt  DateTime @default(now())
+  photos     Photo[]
+}
+
+model Photo {
+  id       String  @id @default(cuid())
+  pageId   String
+  filePath String
+  width    Int?
+  height   Int?
+  order    Int     @default(0)
+  page     Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
+}

@@ -1,26 +1,71 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-fraunces);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html, body {
+  font-family: var(--font-sans);
+  letter-spacing: -0.005em;
+}
+
+html {
+  /* Lenis handles smooth scroll on most surfaces. Native fallback for in-page anchors. */
+  scroll-behavior: smooth;
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  letter-spacing: -0.02em;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Subtle ambient grain — gives the page texture without competing with photos. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+@media print {
+  body::before { display: none; }
+}
+
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  html,
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Collapse masonry to a single column when printing —
+     CSS columns fragment unpredictably across print pages. */
+  [class*="column-count"],
+  [style*="column-count"] {
+    column-count: 1 !important;
+  }
+
+  /* Don't split a photo, gallery, or section across pages */
+  figure,
+  section,
+  blockquote {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
 }
