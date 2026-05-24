@@ -9,6 +9,9 @@ import { ensureDimensions } from "@/lib/ensure-dimensions";
 import { isEditor } from "@/lib/owner";
 import type { Layout } from "@/lib/layout";
 
+// Same reasoning as /create: `addPhotosToPage` does the same heavy pipeline.
+export const maxDuration = 300;
+
 export default async function JournalPage({
   params,
 }: {
