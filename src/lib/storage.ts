@@ -82,3 +82,20 @@ export async function deleteImage(publicId: string): Promise<void> {
   if (publicId.startsWith("/")) return;
   await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
 }
+
+// Cloudinary fetches the URL itself — faster than streaming bytes through us.
+export async function uploadImageFromUrl(url: string): Promise<UploadResult> {
+  if (!isCloudinaryConfigured()) {
+    throw new Error("Cloudinary not configured");
+  }
+  const result = await cloudinary.uploader.upload(url, {
+    folder: FOLDER,
+    resource_type: "image",
+  });
+  return {
+    publicId: result.public_id,
+    width: result.width,
+    height: result.height,
+    format: result.format,
+  };
+}

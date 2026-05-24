@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import sharp from "sharp";
+import OpenAI from "openai";
 import type {
   ContentBlockParam,
   ToolUseBlock,
@@ -16,6 +17,25 @@ import type { Layout } from "@/lib/layout";
 const MODEL = "claude-sonnet-4-6";
 const MAX_PHOTOS = 100;
 const AI_MAX_EDGE = 1568;
+const IMAGE_MODEL = process.env.IMAGE_MODEL ?? "gpt-image-2";
+
+// Style modifier appended to every auto-illustration prompt — keeps generated
+// images consistent in look across all photo-less entries.
+const ILLUSTRATION_STYLE = [
+  "Flat editorial illustration in the style of a contemporary magazine cover.",
+  "Muted warm color palette with one or two accent colors.",
+  "Generous negative space, gentle paper-grain texture, subtly geometric.",
+  "Stylised and graphic — not a photo.",
+  "No text, no letters, no captions.",
+].join(" ");
+
+const ILLUSTRATION_PROMPT_SYSTEM = `You write single, focused image prompts for an editorial illustration model.
+
+Given the summary of a journal entry, write ONE concise scene description — about 20-40 words — that captures the entry visually. Think New Yorker cover or Quanta Magazine: one strong concept, no clutter.
+
+Do NOT include style language like "watercolor" or "illustration"; the style is applied automatically. Focus only on the SCENE: what is happening, who is in it, where.
+
+Respond with the scene description only — no labels, no quotes, no explanation.`;
 
 const SUPPORTED_MIME = new Set<
   "image/jpeg" | "image/png" | "image/webp" | "image/gif"
@@ -36,7 +56,9 @@ Block types you may use:
 - "gallery": 2-9 related photos shown together with an optional shared caption. Prefer galleries over many sequential single-photo blocks — they read more like a magazine spread.
 - "quote": a short pulled-quote drawn from or inspired by the user's summary.
 
-Scale the layout to the photo count: roughly N/2 to N blocks for N photos, with a minimum of 5. Use every photo at least once across hero/photo/gallery (do not omit photos). With many photos (20+), lean on gallery blocks to group related shots.`;
+Scale the layout to the photo count: roughly N/2 to N blocks for N photos, with a minimum of 5. Use every photo at least once across hero/photo/gallery (do not omit photos). With many photos (20+), lean on gallery blocks to group related shots.
+
+If you are shown exactly ONE photo, it's an auto-generated editorial illustration — use it as the hero block. The rest of the layout should focus on text + 1-2 quote blocks to break up the body. Do not add additional photo or gallery blocks; you only have the one image.`;
 
 const layoutTool = {
   name: "submit_layout",
@@ -106,9 +128,16 @@ export async function createPage(
     .filter((v): v is File => v instanceof File && v.size > 0);
 
   if (!summary) return { error: "Please add a summary of what happened." };
-  if (files.length === 0) return { error: "Please upload at least one photo." };
   if (files.length > MAX_PHOTOS)
     return { error: `Limit to ${MAX_PHOTOS} photos per page for now.` };
+  // Photo-less entries need a way to produce a visual — only allow them when
+  // OpenAI is configured (we'll auto-generate an illustration).
+  if (files.length === 0 && !process.env.OPENAI_API_KEY) {
+    return {
+      error:
+        "Add at least one photo, or configure OPENAI_API_KEY to auto-generate an illustration.",
+    };
+  }
 
   for (const file of files) {
     if (!SUPPORTED_MIME.has(file.type as ImageMime)) {
@@ -124,6 +153,52 @@ export async function createPage(
       width: number | null;
       height: number | null;
     }[] = [];
+
+    // If no photos were uploaded, auto-generate one editorial illustration
+    // based on the summary. The rest of the pipeline treats it like any other
+    // photo (the system prompt tells Claude how to use a single auto-illust).
+    if (files.length === 0) {
+      const openai = new OpenAI();
+      const promptResp = await anthropic.messages.create({
+        model: MODEL,
+        max_tokens: 200,
+        system: ILLUSTRATION_PROMPT_SYSTEM,
+        messages: [{ role: "user", content: `Summary:\n${summary}` }],
+      });
+      const scenePrompt = promptResp.content
+        .map((b) => (b.type === "text" ? b.text : ""))
+        .join("\n")
+        .trim();
+
+      const imageResp = await openai.images.generate({
+        model: IMAGE_MODEL,
+        prompt: `${scenePrompt}\n\n${ILLUSTRATION_STYLE}`,
+        size: "1536x1024",
+        quality: "medium",
+        n: 1,
+      });
+      const b64 = imageResp.data?.[0]?.b64_json;
+      if (!b64) throw new Error("Image model returned no data.");
+      const illustration = Buffer.from(b64, "base64");
+
+      const aiBuffer = await sharp(illustration)
+        .resize({
+          width: AI_MAX_EDGE,
+          height: AI_MAX_EDGE,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      const upload = await uploadImage(illustration);
+      saved.push({
+        filePath: upload.publicId,
+        aiBase64: aiBuffer.toString("base64"),
+        width: upload.width,
+        height: upload.height,
+      });
+    }
+
     for (const file of files) {
       const original = Buffer.from(await file.arrayBuffer());
 

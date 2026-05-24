@@ -28,7 +28,6 @@ export default function CreateForm() {
     prev: CreatePageState,
     formData: FormData,
   ): Promise<CreatePageState> {
-    if (previews.length === 0) return { error: "Add at least one photo." };
     if (!summary.trim()) return { error: "Tell me what happened." };
     formData.delete("photos");
     for (const { file } of previews) {
@@ -82,7 +81,7 @@ export default function CreateForm() {
           <div className="text-center">
             <div className="font-medium">Click to add photos</div>
             <div className="text-sm text-zinc-500">
-              JPG, PNG, WebP, or GIF — up to 100
+              JPG, PNG, WebP, or GIF — up to 100. Skip to auto-generate an illustration.
             </div>
           </div>
           <input
