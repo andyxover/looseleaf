@@ -26,9 +26,17 @@ export async function updatePageLayout(
   if (typeof layout.title !== "string") throw new Error("Invalid title");
   if (!Array.isArray(layout.blocks)) throw new Error("Invalid blocks");
 
-  const parsedEntryDate = entryDate ? new Date(entryDate) : null;
-  if (parsedEntryDate && Number.isNaN(parsedEntryDate.getTime())) {
-    throw new Error("Invalid entry date");
+  // Accept either a "YYYY-MM-DD" date-only string (from the editor's date input)
+  // or a full ISO. Anchor date-only values at noon UTC to dodge TZ shifts.
+  let parsedEntryDate: Date | null = null;
+  if (entryDate) {
+    const iso = /^\d{4}-\d{2}-\d{2}$/.test(entryDate)
+      ? `${entryDate}T12:00:00.000Z`
+      : entryDate;
+    parsedEntryDate = new Date(iso);
+    if (Number.isNaN(parsedEntryDate.getTime())) {
+      throw new Error("Invalid entry date");
+    }
   }
 
   await prisma.page.update({

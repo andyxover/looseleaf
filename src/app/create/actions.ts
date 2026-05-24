@@ -93,7 +93,11 @@ export async function createPage(
 
   const summary = String(formData.get("summary") ?? "").trim();
   const entryDateRaw = String(formData.get("entryDate") ?? "").trim();
-  const entryDate = entryDateRaw ? new Date(entryDateRaw) : new Date();
+  // Anchor at noon UTC so the date displays correctly in any timezone (TZ
+  // offsets are bounded by ±14h, so noon UTC stays within the same calendar day).
+  const entryDate = entryDateRaw
+    ? new Date(`${entryDateRaw}T12:00:00.000Z`)
+    : new Date();
   if (Number.isNaN(entryDate.getTime())) {
     return { error: "Please enter a valid entry date." };
   }
