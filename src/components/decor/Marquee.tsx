@@ -37,7 +37,7 @@ export function Marquee({
             className="flex items-center gap-10 font-mono text-xs uppercase tracking-[0.3em] text-zinc-500"
           >
             <span>{label}</span>
-            <Asterisk className="size-3.5" strokeWidth={1.25} />
+            <Asterisk className="size-3.5 text-accent" strokeWidth={1.5} />
           </div>
         ))}
       </motion.div>

@@ -52,7 +52,7 @@ export function MagazineSpread({ entries }: { entries: FeedEntry[] }) {
                   }`}
                 >
                   <div className="flex items-baseline gap-3 font-mono text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                    <span>Entry № {entryNum}</span>
+                    <span className="text-accent">Entry № {entryNum}</span>
                     <span aria-hidden className="text-zinc-300 dark:text-zinc-700">
                       ·
                     </span>
@@ -66,7 +66,7 @@ export function MagazineSpread({ entries }: { entries: FeedEntry[] }) {
                       {entry.intro}
                     </p>
                   )}
-                  <div className="mt-8 inline-flex items-baseline gap-2 self-start border-b border-zinc-300 pb-1 font-mono text-[11px] uppercase tracking-[0.3em] text-zinc-700 transition group-hover:border-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:group-hover:border-zinc-100">
+                  <div className="mt-8 inline-flex items-baseline gap-2 self-start border-b border-zinc-300 pb-1 font-mono text-[11px] uppercase tracking-[0.3em] text-zinc-700 transition group-hover:border-accent group-hover:text-accent dark:border-zinc-700 dark:text-zinc-300">
                     Read entry
                     <span aria-hidden>→</span>
                   </div>

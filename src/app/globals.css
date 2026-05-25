@@ -6,6 +6,16 @@
   --font-mono: var(--font-mono);
 }
 
+@theme {
+  /* Editorial accent — a confident vermilion, used sparingly for kickers,
+     issue numbers, rules, and link underlines. One token; recolor here. */
+  --color-accent: #d8412a;
+  --color-accent-ink: #b32d18;
+  /* Warm paper ground instead of cold zinc, for a print feel. */
+  --color-paper: #f6f2ea;
+  --color-paper-dark: #0c0a09;
+}
+
 html, body {
   font-family: var(--font-sans);
   letter-spacing: -0.005em;

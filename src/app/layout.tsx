@@ -14,7 +14,7 @@ const geistSans = Geist({
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
-  axes: ["opsz"],
+  axes: ["opsz", "wght"],
 });
 
 const mono = JetBrains_Mono({
@@ -37,7 +37,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${fraunces.variable} ${mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-zinc-50 text-zinc-900 selection:bg-zinc-900 selection:text-zinc-50 dark:bg-zinc-950 dark:text-zinc-100 dark:selection:bg-zinc-100 dark:selection:text-zinc-900">
+      <body className="min-h-full bg-paper text-zinc-900 selection:bg-accent selection:text-white dark:bg-paper-dark dark:text-zinc-100 dark:selection:bg-accent dark:selection:text-white">
         <ScrollProgress />
         <CursorGlow />
         {children}

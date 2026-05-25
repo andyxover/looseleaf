@@ -56,64 +56,82 @@ export default async function Home() {
         <AmbientOrb variant="cool" size={420} className="right-0 top-32" duration={28} />
       </div>
 
-      <header className="mx-auto flex max-w-6xl items-end justify-between px-6 pt-10 pb-6 sm:pt-16">
-        <FadeIn>
-          <div className="flex items-end gap-6">
-            <div>
-              <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
-                A Photo Journal
+      <header className="border-t-2 border-zinc-900 dark:border-zinc-100">
+        <div className="mx-auto max-w-6xl px-6">
+          <FadeIn>
+            <div className="flex items-center justify-between gap-4 border-b border-zinc-300/70 py-3 dark:border-zinc-800">
+              <div className="hidden font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500 sm:block">
+                Vol. 01 <span className="text-accent">·</span> An archive of moments
               </div>
-              <h1 className="font-serif text-5xl leading-none tracking-tight sm:text-6xl">
-                Looseleaf
-              </h1>
-            </div>
-            <RotatingBadge size={72} iconSize={16} className="hidden text-zinc-700 sm:grid dark:text-zinc-300" />
-          </div>
-        </FadeIn>
-        <FadeIn delay={0.1}>
-          <div className="flex items-center gap-3">
-            {showAuthChrome &&
-              (editor ? (
-                <form action="/auth/signout" method="POST">
-                  <button
-                    type="submit"
-                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+              <div className="flex items-center gap-2 sm:gap-3">
+                {showAuthChrome &&
+                  (editor ? (
+                    <form action="/auth/signout" method="POST">
+                      <button
+                        type="submit"
+                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                      >
+                        <LogOut className="size-4" />
+                        Sign out
+                      </button>
+                    </form>
+                  ) : (
+                    <Link
+                      href="/login"
+                      className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    >
+                      <LogIn className="size-4" />
+                      Sign in
+                    </Link>
+                  ))}
+                {owner && (
+                  <Link
+                    href="/admin"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                   >
-                    <LogOut className="size-4" />
-                    Sign out
-                  </button>
-                </form>
-              ) : (
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                >
-                  <LogIn className="size-4" />
-                  Sign in
-                </Link>
-              ))}
-            {owner && (
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-              >
-                Admin
-              </Link>
-            )}
-            {editor && (
-              <MagneticButton>
-                <Link
-                  href="/create"
-                  className="group relative inline-flex items-center gap-1.5 overflow-hidden rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition dark:bg-zinc-100 dark:text-zinc-900"
-                >
-                  <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition duration-1000 group-hover:translate-x-full dark:via-zinc-900/20" />
-                  <Plus className="relative size-4" />
-                  <span className="relative">New entry</span>
-                </Link>
-              </MagneticButton>
-            )}
-          </div>
-        </FadeIn>
+                    Admin
+                  </Link>
+                )}
+                {editor && (
+                  <MagneticButton>
+                    <Link
+                      href="/create"
+                      className="group relative inline-flex items-center gap-1.5 overflow-hidden rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-ink"
+                    >
+                      <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition duration-1000 group-hover:translate-x-full" />
+                      <Plus className="relative size-4" />
+                      <span className="relative">New entry</span>
+                    </Link>
+                  </MagneticButton>
+                )}
+              </div>
+            </div>
+          </FadeIn>
+
+          <FadeIn delay={0.08}>
+            <div className="flex items-end justify-between gap-6 pt-8 pb-5 sm:pt-12 sm:pb-7">
+              <h1 className="font-serif text-[3.75rem] font-black leading-[0.82] tracking-[-0.045em] sm:text-8xl lg:text-[9.5rem]">
+                Looseleaf<span className="text-accent">.</span>
+              </h1>
+              <RotatingBadge
+                size={84}
+                iconSize={18}
+                className="mb-2 hidden shrink-0 text-zinc-700 sm:grid dark:text-zinc-300"
+              />
+            </div>
+          </FadeIn>
+
+          <FadeIn delay={0.12}>
+            <div className="flex items-baseline justify-between border-t border-zinc-300/70 pt-3 dark:border-zinc-800">
+              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
+                A personal photo journal <span className="text-accent">·</span> laid out by machine
+              </p>
+              <p className="hidden font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-400 sm:block">
+                Est. 2026
+              </p>
+            </div>
+          </FadeIn>
+        </div>
       </header>
 
       <FadeIn delay={0.15}>
