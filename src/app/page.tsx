@@ -4,7 +4,8 @@ import { Plus, LogIn, LogOut } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { isOwner, isEditor } from "@/lib/owner";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
-import { FadeIn, MaskReveal } from "@/components/Reveal";
+import { FadeIn } from "@/components/Reveal";
+import { AnimatedWordmark } from "@/components/AnimatedWordmark";
 import { AmbientOrb } from "@/components/decor/AmbientOrb";
 import { MagneticButton } from "@/components/decor/MagneticButton";
 import { PhotoStrip } from "@/components/decor/PhotoStrip";
@@ -119,9 +120,7 @@ export default async function Home() {
       {/* Hero — one centered focal point with room to breathe. */}
       <section className="mx-auto max-w-5xl px-6 pt-24 pb-16 text-center sm:pt-32 sm:pb-24">
         <h1 className="font-serif text-[3.5rem] font-black leading-[0.95] tracking-[-0.04em] sm:text-8xl lg:text-[7.5rem]">
-          <MaskReveal delay={0.1} duration={0.9} pb="0.06em">
-            Looseleaf<span className="text-accent">.</span>
-          </MaskReveal>
+          <AnimatedWordmark />
         </h1>
         <FadeIn delay={0.3}>
           <p className="mx-auto mt-8 max-w-xl text-balance text-lg leading-relaxed text-zinc-500 dark:text-zinc-400 sm:text-xl">
