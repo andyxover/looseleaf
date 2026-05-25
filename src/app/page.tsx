@@ -11,6 +11,7 @@ import { AmbientOrb } from "@/components/decor/AmbientOrb";
 import { MagneticButton } from "@/components/decor/MagneticButton";
 import { PhotoStrip } from "@/components/decor/PhotoStrip";
 import { HomeFeed } from "@/components/HomeFeed";
+import { SearchBar } from "@/components/SearchBar";
 import { pageToEntry } from "@/lib/feed";
 
 const INITIAL_PAGE = 40;
@@ -139,6 +140,14 @@ export default async function Home() {
       <FadeIn delay={0.15}>
         <Marquee />
       </FadeIn>
+
+      {initialEntries.length > 0 && (
+        <FadeIn delay={0.2}>
+          <div className="mx-auto mt-10 max-w-2xl px-6">
+            <SearchBar />
+          </div>
+        </FadeIn>
+      )}
 
       <main className="mx-auto max-w-6xl px-6 pb-16 pt-12">
         {initialEntries.length === 0 ? (
