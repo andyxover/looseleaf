@@ -5,8 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { isOwner, isEditor } from "@/lib/owner";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 import { FadeIn, MaskReveal } from "@/components/Reveal";
-import { RotatingBadge } from "@/components/decor/RotatingBadge";
-import { Marquee } from "@/components/decor/Marquee";
 import { AmbientOrb } from "@/components/decor/AmbientOrb";
 import { MagneticButton } from "@/components/decor/MagneticButton";
 import { PhotoStrip } from "@/components/decor/PhotoStrip";
@@ -55,105 +53,91 @@ export default async function Home() {
 
   return (
     <div className="relative z-10">
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[60vh] overflow-hidden">
-        <AmbientOrb variant="warm" size={460} className="-left-32 top-12 opacity-70" duration={22} />
-        <AmbientOrb variant="neutral" size={360} className="right-0 top-32 opacity-50" duration={28} />
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[55vh] overflow-hidden">
+        <AmbientOrb
+          variant="warm"
+          size={520}
+          className="left-1/2 top-0 -translate-x-1/2 opacity-40"
+          duration={26}
+        />
       </div>
 
-      <header className="border-t-2 border-zinc-900 dark:border-zinc-100">
-        <div className="mx-auto max-w-6xl px-6">
-          <FadeIn>
-            <div className="flex items-center justify-between gap-4 border-b border-zinc-300/70 py-3 dark:border-zinc-800">
-              <div className="hidden font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500 sm:block">
-                Vol. 01 <span className="text-accent">·</span> An archive of moments
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <LangToggle initial={lang} />
-                {showAuthChrome &&
-                  (editor ? (
-                    <form action="/auth/signout" method="POST">
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                      >
-                        <LogOut className="size-4" />
-                        Sign out
-                      </button>
-                    </form>
-                  ) : (
-                    <Link
-                      href="/login"
-                      className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                    >
-                      <LogIn className="size-4" />
-                      Sign in
-                    </Link>
-                  ))}
-                {owner && (
-                  <Link
-                    href="/admin"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+      {/* Minimal nav — a quiet hairline bar; the brand statement lives in the hero below. */}
+      <header className="border-b border-zinc-200/70 dark:border-zinc-800/70">
+        <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+          <Link
+            href="/"
+            className="font-mono text-xs uppercase tracking-[0.3em] text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            Looseleaf
+          </Link>
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <LangToggle initial={lang} />
+            {showAuthChrome &&
+              (editor ? (
+                <form action="/auth/signout" method="POST">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-zinc-500 transition hover:text-zinc-900 dark:hover:text-zinc-100"
                   >
-                    Admin
-                  </Link>
-                )}
-                {editor && (
-                  <MagneticButton>
-                    <Link
-                      href="/create"
-                      className="group relative inline-flex items-center gap-1.5 overflow-hidden rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-ink"
-                    >
-                      <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition duration-1000 group-hover:translate-x-full" />
-                      <Plus className="relative size-4" />
-                      <span className="relative">New entry</span>
-                    </Link>
-                  </MagneticButton>
-                )}
-              </div>
-            </div>
-          </FadeIn>
-
-          <div className="flex items-end justify-between gap-6 pt-7 pb-4 sm:pt-11 sm:pb-6">
-            <h1 className="font-serif text-[3.75rem] font-black leading-[0.82] tracking-[-0.045em] sm:text-8xl lg:text-[9.5rem]">
-              <MaskReveal delay={0.1} duration={0.9} pb="0.04em">
-                Looseleaf<span className="text-accent">.</span>
-              </MaskReveal>
-            </h1>
-            <FadeIn delay={0.55} y={0}>
-              <RotatingBadge
-                size={84}
-                iconSize={18}
-                className="mb-2 hidden shrink-0 text-zinc-700 sm:grid dark:text-zinc-300"
-              />
-            </FadeIn>
+                    <LogOut className="size-4" />
+                    Sign out
+                  </button>
+                </form>
+              ) : (
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-zinc-500 transition hover:text-zinc-900 dark:hover:text-zinc-100"
+                >
+                  <LogIn className="size-4" />
+                  Sign in
+                </Link>
+              ))}
+            {owner && (
+              <Link
+                href="/admin"
+                className="rounded-full px-3 py-1.5 text-sm text-zinc-500 transition hover:text-zinc-900 dark:hover:text-zinc-100"
+              >
+                Admin
+              </Link>
+            )}
+            {editor && (
+              <MagneticButton>
+                <Link
+                  href="/create"
+                  className="group relative inline-flex items-center gap-1.5 overflow-hidden rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-white transition hover:bg-accent-ink"
+                >
+                  <Plus className="size-4" />
+                  New entry
+                </Link>
+              </MagneticButton>
+            )}
           </div>
-
-          <FadeIn delay={0.12}>
-            <div className="flex items-baseline justify-between border-t border-zinc-300/70 pt-3 dark:border-zinc-800">
-              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
-                A personal photo journal <span className="text-accent">·</span> laid out by machine
-              </p>
-              <p className="hidden font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-400 sm:block">
-                Est. 2026
-              </p>
-            </div>
-          </FadeIn>
-        </div>
+        </nav>
       </header>
 
-      <FadeIn delay={0.15}>
-        <Marquee />
-      </FadeIn>
-
-      {initialEntries.length > 0 && (
-        <FadeIn delay={0.2}>
-          <div className="mx-auto mt-10 max-w-2xl px-6">
-            <SearchBar />
-          </div>
+      {/* Hero — one centered focal point with room to breathe. */}
+      <section className="mx-auto max-w-5xl px-6 pt-24 pb-16 text-center sm:pt-32 sm:pb-24">
+        <h1 className="font-serif text-[3.5rem] font-black leading-[0.95] tracking-[-0.04em] sm:text-8xl lg:text-[7.5rem]">
+          <MaskReveal delay={0.1} duration={0.9} pb="0.06em">
+            Looseleaf<span className="text-accent">.</span>
+          </MaskReveal>
+        </h1>
+        <FadeIn delay={0.3}>
+          <p className="mx-auto mt-8 max-w-xl text-balance text-lg leading-relaxed text-zinc-500 dark:text-zinc-400 sm:text-xl">
+            A personal photo journal — everyday moments, laid out like a magazine by machine.
+          </p>
         </FadeIn>
-      )}
+        {initialEntries.length > 0 && (
+          <FadeIn delay={0.42}>
+            <div className="mx-auto mt-12 max-w-md">
+              <SearchBar />
+            </div>
+          </FadeIn>
+        )}
+      </section>
 
-      <main className="mx-auto max-w-6xl px-6 pb-16 pt-12">
+      <main className="mx-auto max-w-6xl px-6 pb-16 pt-4">
         {initialEntries.length === 0 ? (
           <FadeIn delay={0.2}>
             <div className="mt-32 text-center">
