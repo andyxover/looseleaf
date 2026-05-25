@@ -24,6 +24,10 @@ export function FloatingActions() {
   const pointerEvents = useTransform(scrollY, (v) => (v > 120 ? "auto" : "none"));
 
   const isHome = pathname === "/";
+  const isShared = pathname?.startsWith("/share/") ?? false;
+  // On a shared entry, hide the floating actions entirely so the recipient
+  // has no link back to the rest of the archive.
+  if (isShared) return null;
 
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: "smooth" });

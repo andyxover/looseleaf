@@ -47,7 +47,7 @@ export function BentoMosaic({ entries }: { entries: FeedEntry[] }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 [grid-auto-flow:dense]">
       {entries.map((entry, i) => {
-        const size = PATTERN[i % PATTERN.length];
+        const size: Size = entries.length === 1 ? "wide" : PATTERN[i % PATTERN.length];
         const dateLabel = new Date(entry.date)
           .toLocaleDateString("en-US", { month: "short", day: "numeric" })
           .toUpperCase();

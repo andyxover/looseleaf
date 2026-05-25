@@ -34,6 +34,8 @@ import {
   Plus,
   Replace,
   Crop,
+  Share2,
+  Link as LinkIcon,
 } from "lucide-react";
 
 import type { Block, Framing, Layout } from "@/lib/layout";
@@ -133,6 +135,19 @@ export function EditableJournal({
   }
 
   const [preparingPrint, setPreparingPrint] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "copied">("idle");
+
+  async function handleShare() {
+    const url = `${window.location.origin}/share/${pageId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareState("copied");
+      setTimeout(() => setShareState("idle"), 2000);
+    } catch {
+      // Fallback: open a prompt with the URL pre-filled.
+      window.prompt("Copy this share link:", url);
+    }
+  }
   async function handlePrint() {
     setPreparingPrint(true);
     try {
@@ -319,11 +334,13 @@ export function EditableJournal({
         deleting={deleting}
         adding={adding}
         preparingPrint={preparingPrint}
+        shareState={shareState}
         onEdit={() => setMode("edit")}
         onSave={save}
         onCancel={cancel}
         onDelete={confirmDelete}
         onPrint={handlePrint}
+        onShare={handleShare}
         onAddPhotos={() => fileInputRef.current?.click()}
       />
       <input
@@ -380,11 +397,13 @@ function Toolbar({
   deleting,
   adding,
   preparingPrint,
+  shareState,
   onEdit,
   onSave,
   onCancel,
   onDelete,
   onPrint,
+  onShare,
   onAddPhotos,
 }: {
   mode: "view" | "edit";
@@ -393,11 +412,13 @@ function Toolbar({
   deleting: boolean;
   adding: boolean;
   preparingPrint: boolean;
+  shareState: "idle" | "copied";
   onEdit: () => void;
   onSave: () => void;
   onCancel: () => void;
   onDelete: () => void;
   onPrint: () => void;
+  onShare: () => void;
   onAddPhotos: () => void;
 }) {
   return (
@@ -405,6 +426,22 @@ function Toolbar({
       <div className="mx-auto flex max-w-3xl items-center justify-end gap-2 px-6 py-3">
         {mode === "view" ? (
           <>
+            <button
+              onClick={onShare}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+            >
+              {shareState === "copied" ? (
+                <>
+                  <LinkIcon className="size-4" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Share2 className="size-4" />
+                  Share
+                </>
+              )}
+            </button>
             <button
               onClick={onPrint}
               disabled={preparingPrint}
