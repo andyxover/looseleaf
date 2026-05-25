@@ -14,7 +14,7 @@ const geistSans = Geist({
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
-  axes: ["opsz", "wght"],
+  axes: ["opsz"],
 });
 
 const mono = JetBrains_Mono({
