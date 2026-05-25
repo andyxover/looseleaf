@@ -422,7 +422,7 @@ function Toolbar({
   onAddPhotos: () => void;
 }) {
   return (
-    <div className="sticky top-0 z-40 -mt-6 mb-6 border-b border-zinc-200 bg-white/80 backdrop-blur print:hidden dark:border-zinc-800 dark:bg-zinc-950/80">
+    <div className="sticky top-0 z-40 mt-4 mb-6 border-b border-zinc-200 bg-white/80 backdrop-blur print:hidden dark:border-zinc-800 dark:bg-zinc-950/80">
       <div className="mx-auto flex max-w-3xl items-center justify-end gap-2 px-6 py-3">
         {mode === "view" ? (
           <>
