@@ -4,7 +4,7 @@ import { Plus, LogIn, LogOut } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { isOwner, isEditor } from "@/lib/owner";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
-import { FadeIn } from "@/components/Reveal";
+import { FadeIn, MaskReveal } from "@/components/Reveal";
 import { RotatingBadge } from "@/components/decor/RotatingBadge";
 import { Marquee } from "@/components/decor/Marquee";
 import { AmbientOrb } from "@/components/decor/AmbientOrb";
@@ -52,8 +52,8 @@ export default async function Home() {
   return (
     <div className="relative z-10">
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[60vh] overflow-hidden">
-        <AmbientOrb variant="warm" size={520} className="-left-32 top-12" duration={22} />
-        <AmbientOrb variant="cool" size={420} className="right-0 top-32" duration={28} />
+        <AmbientOrb variant="warm" size={460} className="-left-32 top-12 opacity-70" duration={22} />
+        <AmbientOrb variant="neutral" size={360} className="right-0 top-32 opacity-50" duration={28} />
       </div>
 
       <header className="border-t-2 border-zinc-900 dark:border-zinc-100">
@@ -108,18 +108,20 @@ export default async function Home() {
             </div>
           </FadeIn>
 
-          <FadeIn delay={0.08}>
-            <div className="flex items-end justify-between gap-6 pt-8 pb-5 sm:pt-12 sm:pb-7">
-              <h1 className="font-serif text-[3.75rem] font-black leading-[0.82] tracking-[-0.045em] sm:text-8xl lg:text-[9.5rem]">
+          <div className="flex items-end justify-between gap-6 pt-7 pb-4 sm:pt-11 sm:pb-6">
+            <h1 className="font-serif text-[3.75rem] font-black leading-[0.82] tracking-[-0.045em] sm:text-8xl lg:text-[9.5rem]">
+              <MaskReveal delay={0.1} duration={0.9} pb="0.04em">
                 Looseleaf<span className="text-accent">.</span>
-              </h1>
+              </MaskReveal>
+            </h1>
+            <FadeIn delay={0.55} y={0}>
               <RotatingBadge
                 size={84}
                 iconSize={18}
                 className="mb-2 hidden shrink-0 text-zinc-700 sm:grid dark:text-zinc-300"
               />
-            </div>
-          </FadeIn>
+            </FadeIn>
+          </div>
 
           <FadeIn delay={0.12}>
             <div className="flex items-baseline justify-between border-t border-zinc-300/70 pt-3 dark:border-zinc-800">

@@ -3,12 +3,56 @@
 import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
+// Editorial clip reveal: the content wipes up from behind a hard edge.
+// Use for headings. `onView` waits for scroll-in; otherwise fires on mount.
+// The bottom padding gives descenders (g, y, p) room so the clip doesn't
+// shave them at rest.
+export function MaskReveal({
+  children,
+  delay = 0,
+  duration = 0.75,
+  className,
+  onView = false,
+  pb = "0.18em",
+}: {
+  children: ReactNode;
+  delay?: number;
+  duration?: number;
+  className?: string;
+  onView?: boolean;
+  pb?: string;
+}) {
+  const reduced = useReducedMotion();
+  if (reduced) return <span className={className}>{children}</span>;
+  const animate = { y: "0%" };
+  return (
+    <span
+      className={`inline-block overflow-hidden align-bottom ${className ?? ""}`}
+      style={{ paddingBottom: pb }}
+    >
+      <motion.span
+        className="inline-block will-change-transform"
+        initial={{ y: "115%" }}
+        transition={{ duration, delay, ease: [0.16, 1, 0.3, 1] }}
+        {...(onView
+          ? {
+              whileInView: animate,
+              viewport: { once: true, margin: "0px 0px -12% 0px" },
+            }
+          : { animate })}
+      >
+        {children}
+      </motion.span>
+    </span>
+  );
+}
+
 export function Reveal({
   children,
   delay = 0,
   y = 32,
   className,
-  duration = 0.8,
+  duration = 0.6,
 }: {
   children: ReactNode;
   delay?: number;
@@ -38,7 +82,7 @@ export function FadeIn({
   delay = 0,
   y = 16,
   className,
-  duration = 0.8,
+  duration = 0.6,
 }: {
   children: ReactNode;
   delay?: number;

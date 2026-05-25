@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 
 import type { FeedEntry } from "@/lib/feed";
 import { PhotoImage } from "@/components/PhotoImage";
+import { MaskReveal } from "@/components/Reveal";
 
 export function MagazineSpread({ entries }: { entries: FeedEntry[] }) {
   const reduced = useReducedMotion();
@@ -23,10 +24,10 @@ export function MagazineSpread({ entries }: { entries: FeedEntry[] }) {
         return (
           <motion.article
             key={entry.id}
-            initial={reduced ? false : { opacity: 0, y: 32 }}
+            initial={reduced ? false : { opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "0px 0px -10% 0px" }}
-            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             className="group relative"
           >
             <Link href={`/journal/${entry.id}`} className="block">
@@ -59,7 +60,9 @@ export function MagazineSpread({ entries }: { entries: FeedEntry[] }) {
                     <span className="tracking-[0.25em] text-zinc-400">{dateLabel}</span>
                   </div>
                   <h3 className="mt-6 font-serif text-3xl leading-[1.05] tracking-tight sm:text-4xl lg:text-5xl">
-                    {entry.title}
+                    <MaskReveal onView duration={0.8}>
+                      {entry.title}
+                    </MaskReveal>
                   </h3>
                   {entry.intro && (
                     <p className="mt-5 max-w-prose text-base leading-7 text-zinc-600 dark:text-zinc-400">
