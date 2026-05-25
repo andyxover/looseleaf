@@ -14,6 +14,7 @@ import type { Block, Framing, Layout } from "@/lib/layout";
 import { Gallery, type GalleryPhoto } from "@/components/Gallery";
 import { PhotoImage } from "@/components/PhotoImage";
 import { Reveal, FadeIn } from "@/components/Reveal";
+import { Tilt } from "@/components/Tilt";
 import { AmbientOrb } from "@/components/decor/AmbientOrb";
 import { RotatingBadge } from "@/components/decor/RotatingBadge";
 import { WavyDivider } from "@/components/decor/WavyDivider";
@@ -285,11 +286,12 @@ function HeroBlock({
   return (
     <FadeIn delay={0.35} duration={1.1}>
       <section className="-mx-6 sm:mx-0">
-        <div
-          ref={ref}
-          className="relative overflow-hidden bg-zinc-100 sm:rounded-xl dark:bg-zinc-900"
-          style={{ aspectRatio: naturalAspect(photo, "4/3") }}
-        >
+        <Tilt intensity={5} className="block">
+          <div
+            ref={ref}
+            className="relative overflow-hidden bg-zinc-100 sm:rounded-xl dark:bg-zinc-900"
+            style={{ aspectRatio: naturalAspect(photo, "4/3") }}
+          >
           <motion.div
             className="absolute inset-0"
             style={reduced ? undefined : { y, scale: 1.08 }}
@@ -308,7 +310,8 @@ function HeroBlock({
           <div className="absolute bottom-4 right-4 hidden text-white/90 mix-blend-difference sm:block">
             <RotatingBadge size={84} iconSize={18} />
           </div>
-        </div>
+          </div>
+        </Tilt>
         {(block.headline || block.subhead) && (
           <div className="mt-8 px-6 sm:px-0">
             {block.headline && (
@@ -380,26 +383,28 @@ function BlockView({
           : naturalAspect(photo, block.size === "full" ? "4/5" : "4/3");
       return (
         <figure className={sizeWrapper}>
-          <div
-            className="relative overflow-hidden bg-zinc-100 sm:rounded-xl dark:bg-zinc-900"
-            style={{ aspectRatio: aspect, maxHeight: "85vh" }}
-          >
-            <PhotoImage
-              src={photo.filePath}
-              alt={block.caption ?? ""}
-              fill
-              className="object-cover"
-              loading="eager"
-              style={framingStyle(block.framing)}
-              sizes={
-                block.size === "small"
-                  ? "(min-width: 640px) 384px, 100vw"
-                  : block.size === "full"
-                  ? "(min-width: 640px) 720px, 100vw"
-                  : "(min-width: 640px) 576px, 100vw"
-              }
-            />
-          </div>
+          <Tilt intensity={block.size === "small" ? 2 : 4} className="block">
+            <div
+              className="relative overflow-hidden bg-zinc-100 sm:rounded-xl dark:bg-zinc-900"
+              style={{ aspectRatio: aspect, maxHeight: "85vh" }}
+            >
+              <PhotoImage
+                src={photo.filePath}
+                alt={block.caption ?? ""}
+                fill
+                className="object-cover"
+                loading="eager"
+                style={framingStyle(block.framing)}
+                sizes={
+                  block.size === "small"
+                    ? "(min-width: 640px) 384px, 100vw"
+                    : block.size === "full"
+                    ? "(min-width: 640px) 720px, 100vw"
+                    : "(min-width: 640px) 576px, 100vw"
+                }
+              />
+            </div>
+          </Tilt>
           {block.caption && (
             <figcaption className="mt-4 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500">
               {block.caption}
@@ -413,7 +418,12 @@ function BlockView({
         .map((idx) => getPhoto(photos, idx))
         .filter((p): p is DisplayPhoto => p !== null);
       return (
-        <Gallery photos={items} spans={block.spans} caption={block.caption} />
+        <Gallery
+          photos={items}
+          spans={block.spans}
+          caption={block.caption}
+          tilt
+        />
       );
     }
     case "quote":
