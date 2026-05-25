@@ -24,26 +24,31 @@ export function MaskReveal({
 }) {
   const reduced = useReducedMotion();
   if (reduced) return <span className={className}>{children}</span>;
-  const animate = { y: "0%" };
+  // Observe the outer clip box (which sits in its normal layout position) and
+  // let the variant cascade to the translated inner span — otherwise the
+  // IntersectionObserver would watch the element pushed 115% off-screen and
+  // never fire, leaving the heading clipped out of view forever.
+  const variants = { hidden: { y: "115%" }, shown: { y: "0%" } };
   return (
-    <span
+    <motion.span
       className={`inline-block overflow-hidden align-bottom ${className ?? ""}`}
       style={{ paddingBottom: pb }}
+      initial="hidden"
+      {...(onView
+        ? {
+            whileInView: "shown",
+            viewport: { once: true, margin: "0px 0px -12% 0px" },
+          }
+        : { animate: "shown" })}
     >
       <motion.span
         className="inline-block will-change-transform"
-        initial={{ y: "115%" }}
+        variants={variants}
         transition={{ duration, delay, ease: [0.16, 1, 0.3, 1] }}
-        {...(onView
-          ? {
-              whileInView: animate,
-              viewport: { once: true, margin: "0px 0px -12% 0px" },
-            }
-          : { animate })}
       >
         {children}
       </motion.span>
-    </span>
+    </motion.span>
   );
 }
 
