@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { MagazinePage } from "@/components/MagazinePage";
+import { LangToggle } from "@/components/LangToggle";
 import { ensureDimensions } from "@/lib/ensure-dimensions";
+import { getLang, resolveLayoutJson } from "@/lib/lang";
 import type { Layout } from "@/lib/layout";
 
 // Photo-pipeline routes get a long timeout because the layout work can be heavy.
@@ -20,7 +22,8 @@ export default async function SharePage({
   });
   if (!page) notFound();
 
-  const layout = JSON.parse(page.layoutJson) as Layout;
+  const lang = await getLang();
+  const layout = JSON.parse(resolveLayoutJson(page, lang)) as Layout;
   const filled = await ensureDimensions(page.photos);
   const photos = filled.map((p) => ({
     filePath: p.filePath,
@@ -30,9 +33,13 @@ export default async function SharePage({
   }));
 
   // No nav, no editor toolbar, no footer with "Back to all entries". Just the
-  // masthead + body. Recipient can read, but has no link to the rest of the site.
+  // masthead + body + a language toggle. Recipient can read in either language
+  // but has no link to the rest of the site.
   return (
     <div className="min-h-screen pt-12 sm:pt-16">
+      <div className="mx-auto mb-2 flex max-w-3xl justify-end px-6">
+        <LangToggle initial={lang} />
+      </div>
       <MagazinePage
         layout={layout}
         photos={photos}

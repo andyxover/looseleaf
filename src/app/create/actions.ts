@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { anthropic } from "@/lib/anthropic";
 import { uploadImage } from "@/lib/storage";
 import { isEditor } from "@/lib/owner";
+import { translateLayout } from "@/lib/translate";
 import type { Layout } from "@/lib/layout";
 
 const MODEL = "claude-sonnet-4-6";
@@ -220,11 +221,28 @@ export async function createPage(
 
     const layout = toolUse.input as Layout;
 
+    // Translate for the language toggle — best-effort, so a translation hiccup
+    // never blocks entry creation (rendering falls back to the original).
+    let layoutEn: string | null = null;
+    let layoutZh: string | null = null;
+    try {
+      const [en, zh] = await Promise.all([
+        translateLayout(layout, "en"),
+        translateLayout(layout, "zh"),
+      ]);
+      layoutEn = JSON.stringify(en);
+      layoutZh = JSON.stringify(zh);
+    } catch (e) {
+      console.warn("createPage translation failed (entry still created):", e);
+    }
+
     const page = await prisma.page.create({
       data: {
         title: layout.title,
         summary,
         layoutJson: JSON.stringify(layout),
+        layoutEn,
+        layoutZh,
         entryDate,
         photos: {
           create: saved.map((s, i) => ({

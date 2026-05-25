@@ -37,6 +37,10 @@ export async function updatePageLayout(
     data: {
       title: layout.title,
       layoutJson: JSON.stringify(layout),
+      // Edits invalidate the cached translations — clear them so readers see
+      // the fresh canonical until the translate script refills them.
+      layoutEn: null,
+      layoutZh: null,
       ...(parsedEntryDate ? { entryDate: parsedEntryDate } : {}),
     },
   });

@@ -12,6 +12,8 @@ model Page {
   title      String
   summary    String
   layoutJson String
+  layoutEn   String?
+  layoutZh   String?
   createdAt  DateTime @default(now())
   entryDate  DateTime @default(now())
   photos     Photo[]

@@ -41,8 +41,15 @@ type RawPage = {
 export function pageToEntry(p: RawPage): FeedEntry {
   let intro = "";
   let quote: FeedEntry["quote"] = null;
+  // `layoutJson` here is the language-resolved layout, so the title/intro/quote
+  // come out already translated. Fall back to the row's title if the layout
+  // has none.
+  let title = p.title;
   try {
     const layout = JSON.parse(p.layoutJson) as Layout;
+    if (typeof layout.title === "string" && layout.title.trim()) {
+      title = layout.title;
+    }
     intro = typeof layout.intro === "string" ? layout.intro : "";
     if (Array.isArray(layout.blocks)) {
       quote = extractQuote(layout.blocks);
@@ -58,7 +65,7 @@ export function pageToEntry(p: RawPage): FeedEntry {
   }
   return {
     id: p.id,
-    title: p.title,
+    title,
     intro,
     date: p.entryDate.toISOString(),
     cover: p.photos[0]?.filePath ?? null,

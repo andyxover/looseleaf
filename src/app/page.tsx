@@ -12,12 +12,14 @@ import { MagneticButton } from "@/components/decor/MagneticButton";
 import { PhotoStrip } from "@/components/decor/PhotoStrip";
 import { HomeFeed } from "@/components/HomeFeed";
 import { SearchBar } from "@/components/SearchBar";
+import { LangToggle } from "@/components/LangToggle";
 import { pageToEntry } from "@/lib/feed";
+import { getLang, resolveLayoutJson } from "@/lib/lang";
 
 const INITIAL_PAGE = 40;
 
 export default async function Home() {
-  const [rows, owner, editor, stripPhotos] = await Promise.all([
+  const [rows, owner, editor, stripPhotos, lang] = await Promise.all([
     prisma.page.findMany({
       orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
       take: INITIAL_PAGE,
@@ -33,6 +35,7 @@ export default async function Home() {
       take: 30,
       select: { filePath: true, width: true, height: true },
     }),
+    getLang(),
   ]);
   const showAuthChrome = isSupabaseConfigured();
   const initialEntries = rows.map((p) =>
@@ -40,7 +43,7 @@ export default async function Home() {
       id: p.id,
       title: p.title,
       entryDate: p.entryDate,
-      layoutJson: p.layoutJson,
+      layoutJson: resolveLayoutJson(p, lang),
       photos: p.photos.map((ph) => ({ filePath: ph.filePath })),
       _photoCount: p._count.photos,
     }),
@@ -65,6 +68,7 @@ export default async function Home() {
                 Vol. 01 <span className="text-accent">·</span> An archive of moments
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
+                <LangToggle initial={lang} />
                 {showAuthChrome &&
                   (editor ? (
                     <form action="/auth/signout" method="POST">

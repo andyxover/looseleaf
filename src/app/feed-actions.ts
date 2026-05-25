@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { pageToEntry, type FeedEntry } from "@/lib/feed";
+import { getLang, resolveLayoutJson } from "@/lib/lang";
 
 const PAGE_SIZE = 24;
 
@@ -14,6 +15,7 @@ export async function loadMoreEntries(
   if (Number.isNaN(cursor.getTime())) {
     return { entries: [], nextCursor: null };
   }
+  const lang = await getLang();
 
   const rows = await prisma.page.findMany({
     where: { entryDate: { lt: cursor } },
@@ -30,7 +32,7 @@ export async function loadMoreEntries(
       id: p.id,
       title: p.title,
       entryDate: p.entryDate,
-      layoutJson: p.layoutJson,
+      layoutJson: resolveLayoutJson(p, lang),
       photos: p.photos.map((ph) => ({ filePath: ph.filePath })),
       _photoCount: p._count.photos,
     }),
