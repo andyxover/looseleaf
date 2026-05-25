@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "src/app/create/page.tsx": {
+      "memory": 3009,
+      "maxDuration": 300
+    },
+    "src/app/journal/[id]/page.tsx": {
+      "memory": 3009,
+      "maxDuration": 300
+    }
+  }
+}
