@@ -4,20 +4,26 @@ import { Plus, LogIn, LogOut } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { isOwner, isEditor } from "@/lib/owner";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
-import { EntryCard } from "@/components/EntryCard";
 import { FadeIn } from "@/components/Reveal";
 import { RotatingBadge } from "@/components/decor/RotatingBadge";
 import { Marquee } from "@/components/decor/Marquee";
 import { AmbientOrb } from "@/components/decor/AmbientOrb";
-import { WavyDivider } from "@/components/decor/WavyDivider";
 import { MagneticButton } from "@/components/decor/MagneticButton";
 import { PhotoStrip } from "@/components/decor/PhotoStrip";
+import { HomeFeed } from "@/components/HomeFeed";
+import { pageToEntry } from "@/lib/feed";
+
+const INITIAL_PAGE = 40;
 
 export default async function Home() {
-  const [pages, owner, editor, stripPhotos] = await Promise.all([
+  const [rows, owner, editor, stripPhotos] = await Promise.all([
     prisma.page.findMany({
       orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
-      include: { photos: { orderBy: { order: "asc" }, take: 1 } },
+      take: INITIAL_PAGE,
+      include: {
+        photos: { orderBy: { order: "asc" }, take: 1 },
+        _count: { select: { photos: true } },
+      },
     }),
     isOwner(),
     isEditor(),
@@ -28,24 +34,26 @@ export default async function Home() {
     }),
   ]);
   const showAuthChrome = isSupabaseConfigured();
-  const [featured, ...rest] = pages;
+  const initialEntries = rows.map((p) =>
+    pageToEntry({
+      id: p.id,
+      title: p.title,
+      entryDate: p.entryDate,
+      layoutJson: p.layoutJson,
+      photos: p.photos.map((ph) => ({ filePath: ph.filePath })),
+      _photoCount: p._count.photos,
+    }),
+  );
+  const initialCursor =
+    rows.length === INITIAL_PAGE
+      ? rows[rows.length - 1].entryDate.toISOString()
+      : null;
 
   return (
     <div className="relative z-10">
-      {/* Ambient orbs behind the masthead — drift slowly to give the page a heartbeat */}
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[60vh] overflow-hidden">
-        <AmbientOrb
-          variant="warm"
-          size={520}
-          className="-left-32 top-12"
-          duration={22}
-        />
-        <AmbientOrb
-          variant="cool"
-          size={420}
-          className="right-0 top-32"
-          duration={28}
-        />
+        <AmbientOrb variant="warm" size={520} className="-left-32 top-12" duration={22} />
+        <AmbientOrb variant="cool" size={420} className="right-0 top-32" duration={28} />
       </div>
 
       <header className="mx-auto flex max-w-6xl items-end justify-between px-6 pt-10 pb-6 sm:pt-16">
@@ -59,11 +67,7 @@ export default async function Home() {
                 Looseleaf
               </h1>
             </div>
-            <RotatingBadge
-              size={72}
-              iconSize={16}
-              className="hidden text-zinc-700 sm:grid dark:text-zinc-300"
-            />
+            <RotatingBadge size={72} iconSize={16} className="hidden text-zinc-700 sm:grid dark:text-zinc-300" />
           </div>
         </FadeIn>
         <FadeIn delay={0.1}>
@@ -116,8 +120,8 @@ export default async function Home() {
         <Marquee />
       </FadeIn>
 
-      <main className="mx-auto max-w-6xl px-6 pb-16">
-        {pages.length === 0 ? (
+      <main className="mx-auto max-w-6xl px-6 pb-16 pt-12">
+        {initialEntries.length === 0 ? (
           <FadeIn delay={0.2}>
             <div className="mt-32 text-center">
               <p className="font-mono text-xs uppercase tracking-[0.3em] text-zinc-500">
@@ -132,45 +136,7 @@ export default async function Home() {
             </div>
           </FadeIn>
         ) : (
-          <>
-            {featured && (
-              <section className="mt-8 sm:mt-12">
-                <EntryCard
-                  id={featured.id}
-                  title={featured.title}
-                  date={featured.entryDate}
-                  cover={featured.photos[0]?.filePath}
-                  index={0}
-                  featured
-                />
-              </section>
-            )}
-            {rest.length > 0 && (
-              <section className="mt-20">
-                <WavyDivider className="text-zinc-300 dark:text-zinc-700" />
-                <div className="mb-8 mt-8 flex items-baseline justify-between">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
-                    Earlier entries
-                  </div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-400">
-                    {rest.length.toString().padStart(2, "0")}
-                  </div>
-                </div>
-                <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
-                  {rest.map((page, i) => (
-                    <EntryCard
-                      key={page.id}
-                      id={page.id}
-                      title={page.title}
-                      date={page.entryDate}
-                      cover={page.photos[0]?.filePath}
-                      index={i + 1}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
+          <HomeFeed initialEntries={initialEntries} initialCursor={initialCursor} />
         )}
       </main>
 
