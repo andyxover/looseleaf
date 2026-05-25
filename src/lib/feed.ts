@@ -15,7 +15,7 @@ export type FeedEntry = {
 export type Spread =
   | { type: "featured"; entry: FeedEntry }
   | { type: "monthHeader"; label: string; count: number }
-  | { type: "bento"; entries: FeedEntry[] }
+  | { type: "magazine"; entries: FeedEntry[] }
   | { type: "pullQuote"; entry: FeedEntry; quote: { text: string; attribution?: string } }
   | { type: "list"; entries: FeedEntry[] };
 
@@ -104,18 +104,19 @@ export function buildSpreads(
     }
   }
 
-  // For each month, emit header + a layout (bento for newer, list for older),
-  // and inject a pull quote every few groups for editorial rhythm.
+  // For each month, emit header + a layout (magazine for newer, list for
+  // older), and inject a pull quote every few groups for editorial rhythm.
   groups.forEach((g, idx) => {
     spreads.push({
       type: "monthHeader",
       label: monthLabel(g.key),
       count: g.entries.length,
     });
-    // Alternate: first 2 month-groups get bento; older ones get list.
-    const useBento = idx < 2;
-    if (useBento) {
-      spreads.push({ type: "bento", entries: g.entries });
+    // First 2 month-groups get the magazine spread; older months use the
+    // compact list.
+    const useMagazine = idx < 2;
+    if (useMagazine) {
+      spreads.push({ type: "magazine", entries: g.entries });
     } else {
       spreads.push({ type: "list", entries: g.entries });
     }

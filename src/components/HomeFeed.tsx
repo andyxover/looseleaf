@@ -8,7 +8,7 @@ import { loadMoreEntries } from "@/app/feed-actions";
 
 import { FeaturedHero } from "@/components/spreads/FeaturedHero";
 import { MonthHeader } from "@/components/spreads/MonthHeader";
-import { BentoMosaic } from "@/components/spreads/BentoMosaic";
+import { MagazineSpread } from "@/components/spreads/MagazineSpread";
 import { PullQuoteSpread } from "@/components/spreads/PullQuoteSpread";
 import { ListSpread } from "@/components/spreads/ListSpread";
 
@@ -67,8 +67,8 @@ export function HomeFeed({
             return (
               <MonthHeader key={`h-${i}-${s.label}`} label={s.label} count={s.count} />
             );
-          case "bento":
-            return <BentoMosaic key={`b-${i}`} entries={s.entries} />;
+          case "magazine":
+            return <MagazineSpread key={`m-${i}`} entries={s.entries} />;
           case "pullQuote":
             return (
               <PullQuoteSpread key={`q-${i}`} entry={s.entry} quote={s.quote} />
