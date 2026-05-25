@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import type { Lang } from "@/lib/lang";
 
-// EN | 中 segmented toggle. Persists choice in a cookie and refreshes so the
-// server re-renders every entry in the chosen language.
+// EN | 中 segmented toggle. Persists the choice in a cookie, then does a full
+// reload so the server re-renders everything (home feed included) in the chosen
+// language. A plain router.refresh() wasn't enough: the home feed seeds its
+// entries into client state once and ignores the refreshed server props, so the
+// language only appeared to change after a later navigation.
 export function LangToggle({ initial }: { initial: Lang }) {
-  const router = useRouter();
   const [lang, setLang] = useState<Lang>(initial);
-  const [pending, startTransition] = useTransition();
+  const [switching, setSwitching] = useState(false);
 
   // Keep state in sync if the cookie changed elsewhere.
   useEffect(() => {
@@ -19,15 +20,16 @@ export function LangToggle({ initial }: { initial: Lang }) {
   }, []);
 
   function choose(next: Lang) {
-    if (next === lang) return;
+    if (next === lang || switching) return;
     document.cookie = `lang=${next}; path=/; max-age=31536000; samesite=lax`;
     setLang(next);
-    startTransition(() => router.refresh());
+    setSwitching(true);
+    window.location.reload();
   }
 
   return (
     <div
-      className={`inline-flex overflow-hidden rounded-full border border-zinc-300 text-xs font-medium dark:border-zinc-700 ${pending ? "opacity-60" : ""}`}
+      className={`inline-flex overflow-hidden rounded-full border border-zinc-300 text-xs font-medium dark:border-zinc-700 ${switching ? "opacity-60" : ""}`}
       role="group"
       aria-label="Language"
     >
