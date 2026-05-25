@@ -45,6 +45,7 @@ import {
   deletePage,
   addPhotosToPage,
 } from "@/app/journal/[id]/actions";
+import { compressMany } from "@/lib/compress";
 
 type Photo = {
   filePath: string;
@@ -165,8 +166,9 @@ export function EditableJournal({
       setSavedEntryDate(entryDate);
     }
 
+    const compressed = await compressMany(Array.from(files));
     const fd = new FormData();
-    for (const f of Array.from(files)) fd.append("photos", f);
+    for (const f of compressed) fd.append("photos", f);
     const result = await addPhotosToPage(pageId, { error: null }, fd);
     if (e.target) e.target.value = "";
 

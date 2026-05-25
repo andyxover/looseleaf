@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Loader2, X, Upload, ArrowLeft } from "lucide-react";
 
 import { createPage, type CreatePageState } from "./actions";
+import { compressImage } from "@/lib/compress";
 
 type Preview = { file: File; url: string };
 
@@ -23,6 +24,7 @@ export default function CreateForm() {
   const [previews, setPreviews] = useState<Preview[]>([]);
   const [summary, setSummary] = useState("");
   const [entryDate, setEntryDate] = useState(todayLocal);
+  const [compressing, setCompressing] = useState(0); // photos remaining to compress
 
   async function action(
     prev: CreatePageState,
@@ -40,14 +42,26 @@ export default function CreateForm() {
 
   const [state, formAction, pending] = useActionState(action, initialState);
 
-  function addFiles(files: FileList | null) {
+  async function addFiles(files: FileList | null) {
     if (!files) return;
-    const next: Preview[] = [];
-    for (const file of Array.from(files)) {
-      if (!file.type.startsWith("image/")) continue;
-      next.push({ file, url: URL.createObjectURL(file) });
+    const imageFiles = Array.from(files).filter((f) =>
+      f.type.startsWith("image/"),
+    );
+    setCompressing((c) => c + imageFiles.length);
+    for (const file of imageFiles) {
+      try {
+        const compressed = await compressImage(file);
+        setPreviews((p) => {
+          if (p.length >= 100) return p;
+          return [
+            ...p,
+            { file: compressed, url: URL.createObjectURL(compressed) },
+          ];
+        });
+      } finally {
+        setCompressing((c) => Math.max(0, c - 1));
+      }
     }
-    setPreviews((p) => [...p, ...next].slice(0, 100));
   }
 
   function removeAt(idx: number) {
@@ -79,7 +93,11 @@ export default function CreateForm() {
         >
           <Upload className="size-6 text-zinc-400" />
           <div className="text-center">
-            <div className="font-medium">Click to add photos</div>
+            <div className="font-medium">
+              {compressing > 0
+                ? `Preparing ${compressing} photo${compressing === 1 ? "" : "s"}…`
+                : "Click to add photos"}
+            </div>
             <div className="text-sm text-zinc-500">
               JPG, PNG, WebP, or GIF — up to 100. Skip to auto-generate an illustration.
             </div>
@@ -150,7 +168,7 @@ export default function CreateForm() {
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || compressing > 0}
           className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
         >
           {pending ? (
