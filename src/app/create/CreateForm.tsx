@@ -7,8 +7,16 @@ import { Loader2, X, Upload, ArrowLeft } from "lucide-react";
 
 import { createPage, type CreatePageState } from "./actions";
 import { compressImage } from "@/lib/compress";
+import { uploadToCloudinary } from "@/lib/cloudinary-client";
 
-type Preview = { file: File; url: string };
+type Preview = {
+  localUrl: string;
+  status: "preparing" | "uploading" | "uploaded" | "error";
+  publicId?: string;
+  width?: number;
+  height?: number;
+  error?: string;
+};
 
 const initialState: CreatePageState = { error: null };
 
@@ -24,7 +32,12 @@ export default function CreateForm() {
   const [previews, setPreviews] = useState<Preview[]>([]);
   const [summary, setSummary] = useState("");
   const [entryDate, setEntryDate] = useState(todayLocal);
-  const [compressing, setCompressing] = useState(0); // photos remaining to compress
+
+  const inFlight = previews.filter(
+    (p) => p.status === "preparing" || p.status === "uploading",
+  ).length;
+  const errored = previews.filter((p) => p.status === "error");
+  const uploaded = previews.filter((p) => p.status === "uploaded");
 
   async function action(
     prev: CreatePageState,
@@ -32,8 +45,15 @@ export default function CreateForm() {
   ): Promise<CreatePageState> {
     if (!summary.trim()) return { error: "Tell me what happened." };
     formData.delete("photos");
-    for (const { file } of previews) {
-      formData.append("photos", file);
+    for (const p of uploaded) {
+      formData.append(
+        "photos",
+        JSON.stringify({
+          publicId: p.publicId,
+          width: p.width,
+          height: p.height,
+        }),
+      );
     }
     formData.set("summary", summary);
     formData.set("entryDate", entryDate);
@@ -44,29 +64,67 @@ export default function CreateForm() {
 
   async function addFiles(files: FileList | null) {
     if (!files) return;
-    const imageFiles = Array.from(files).filter((f) =>
+    const incoming = Array.from(files).filter((f) =>
       f.type.startsWith("image/"),
     );
-    setCompressing((c) => c + imageFiles.length);
-    for (const file of imageFiles) {
+    // Reserve slots in state so we don't pass 100 before counting.
+    const baseIdx = previews.length;
+    const room = Math.max(0, 100 - baseIdx);
+    const toProcess = incoming.slice(0, room);
+
+    // Pre-add placeholders so the UI shows the row immediately.
+    setPreviews((p) => [
+      ...p,
+      ...toProcess.map((f) => ({
+        localUrl: URL.createObjectURL(f),
+        status: "preparing" as const,
+      })),
+    ]);
+
+    // Process sequentially: compress → direct upload to Cloudinary.
+    for (let i = 0; i < toProcess.length; i++) {
+      const file = toProcess[i];
+      const myIndex = baseIdx + i;
       try {
         const compressed = await compressImage(file);
-        setPreviews((p) => {
-          if (p.length >= 100) return p;
-          return [
-            ...p,
-            { file: compressed, url: URL.createObjectURL(compressed) },
-          ];
-        });
-      } finally {
-        setCompressing((c) => Math.max(0, c - 1));
+        setPreviews((p) =>
+          p.map((x, idx) =>
+            idx === myIndex ? { ...x, status: "uploading" } : x,
+          ),
+        );
+        const result = await uploadToCloudinary(compressed);
+        setPreviews((p) =>
+          p.map((x, idx) =>
+            idx === myIndex
+              ? {
+                  ...x,
+                  status: "uploaded",
+                  publicId: result.publicId,
+                  width: result.width,
+                  height: result.height,
+                }
+              : x,
+          ),
+        );
+      } catch (e) {
+        setPreviews((p) =>
+          p.map((x, idx) =>
+            idx === myIndex
+              ? {
+                  ...x,
+                  status: "error",
+                  error: e instanceof Error ? e.message : "Upload failed",
+                }
+              : x,
+          ),
+        );
       }
     }
   }
 
   function removeAt(idx: number) {
     setPreviews((p) => {
-      URL.revokeObjectURL(p[idx].url);
+      URL.revokeObjectURL(p[idx].localUrl);
       return p.filter((_, i) => i !== idx);
     });
   }
@@ -94,8 +152,8 @@ export default function CreateForm() {
           <Upload className="size-6 text-zinc-400" />
           <div className="text-center">
             <div className="font-medium">
-              {compressing > 0
-                ? `Preparing ${compressing} photo${compressing === 1 ? "" : "s"}…`
+              {inFlight > 0
+                ? `Uploading ${inFlight} photo${inFlight === 1 ? "" : "s"}…`
                 : "Click to add photos"}
             </div>
             <div className="text-sm text-zinc-500">
@@ -116,10 +174,29 @@ export default function CreateForm() {
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
             {previews.map((p, i) => (
               <div
-                key={p.url}
+                key={p.localUrl}
                 className="group relative aspect-square overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-900"
               >
-                <Image src={p.url} alt="" fill className="object-cover" unoptimized />
+                <Image
+                  src={p.localUrl}
+                  alt=""
+                  fill
+                  className={`object-cover transition ${
+                    p.status === "uploaded" ? "opacity-100" : "opacity-50"
+                  }`}
+                  unoptimized
+                />
+                {p.status !== "uploaded" && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    {p.status === "error" ? (
+                      <span className="rounded bg-red-600 px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-white">
+                        Failed
+                      </span>
+                    ) : (
+                      <Loader2 className="size-5 animate-spin text-zinc-700 dark:text-zinc-200" />
+                    )}
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => removeAt(i)}
@@ -160,6 +237,11 @@ export default function CreateForm() {
           />
         </div>
 
+        {errored.length > 0 && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+            {errored.length} photo{errored.length === 1 ? "" : "s"} failed to upload — remove or retry.
+          </div>
+        )}
         {state.error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
             {state.error}
@@ -168,7 +250,7 @@ export default function CreateForm() {
 
         <button
           type="submit"
-          disabled={pending || compressing > 0}
+          disabled={pending || inFlight > 0}
           className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
         >
           {pending ? (

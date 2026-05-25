@@ -45,7 +45,8 @@ import {
   deletePage,
   addPhotosToPage,
 } from "@/app/journal/[id]/actions";
-import { compressMany } from "@/lib/compress";
+import { compressImage } from "@/lib/compress";
+import { uploadToCloudinary } from "@/lib/cloudinary-client";
 
 type Photo = {
   filePath: string;
@@ -166,9 +167,25 @@ export function EditableJournal({
       setSavedEntryDate(entryDate);
     }
 
-    const compressed = await compressMany(Array.from(files));
+    // Compress + direct upload to Cloudinary (bypassing Vercel's request body
+    // limits), then submit only the resulting public_ids to our server action.
     const fd = new FormData();
-    for (const f of compressed) fd.append("photos", f);
+    for (const file of Array.from(files)) {
+      try {
+        const compressed = await compressImage(file);
+        const result = await uploadToCloudinary(compressed);
+        fd.append(
+          "photos",
+          JSON.stringify({
+            publicId: result.publicId,
+            width: result.width,
+            height: result.height,
+          }),
+        );
+      } catch (err) {
+        console.warn("direct upload failed for", file.name, err);
+      }
+    }
     const result = await addPhotosToPage(pageId, { error: null }, fd);
     if (e.target) e.target.value = "";
 

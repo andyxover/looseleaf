@@ -1,20 +1,13 @@
 "use server";
 
-import sharp from "sharp";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
-import { uploadImage } from "@/lib/storage";
 import { requireEditor, isEditor } from "@/lib/owner";
 import type { Block, Layout } from "@/lib/layout";
 
-const SUPPORTED_MIME = new Set<string>([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]);
+type IncomingPhoto = { publicId: string; width: number; height: number };
 
 export async function updatePageLayout(
   id: string,
@@ -66,18 +59,28 @@ export async function addPhotosToPage(
 ): Promise<AddPhotosState> {
   if (!(await isEditor())) return { error: "Sign in first." };
 
-  const files = formData
-    .getAll("photos")
-    .filter((v): v is File => v instanceof File && v.size > 0);
-  if (files.length === 0) return { error: "No photos selected." };
-  if (files.length > 50)
-    return { error: "Add up to 50 photos at a time." };
-
-  for (const file of files) {
-    if (!SUPPORTED_MIME.has(file.type)) {
-      return { error: `Unsupported file type: ${file.type}` };
+  // Browser uploads directly to Cloudinary; we get back small JSON refs.
+  const rawRefs = formData.getAll("photos");
+  const photoRefs: IncomingPhoto[] = [];
+  for (const raw of rawRefs) {
+    if (typeof raw !== "string") continue;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.publicId === "string") {
+        photoRefs.push({
+          publicId: parsed.publicId,
+          width: Number(parsed.width) || 0,
+          height: Number(parsed.height) || 0,
+        });
+      }
+    } catch {
+      /* skip */
     }
   }
+
+  if (photoRefs.length === 0) return { error: "No photos selected." };
+  if (photoRefs.length > 50)
+    return { error: "Add up to 50 photos at a time." };
 
   const page = await prisma.page.findUnique({ where: { id: pageId } });
   if (!page) return { error: "Entry not found." };
@@ -91,24 +94,19 @@ export async function addPhotosToPage(
   const layout = JSON.parse(page.layoutJson) as Layout;
   const newBlocks: Block[] = [];
 
-  for (const file of files) {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const rotated = await sharp(buffer).rotate().toBuffer();
-    const upload = await uploadImage(rotated);
-
+  for (const ref of photoRefs) {
     await prisma.photo.create({
       data: {
         pageId,
-        filePath: upload.publicId,
-        width: upload.width,
-        height: upload.height,
+        filePath: ref.publicId,
+        width: ref.width || null,
+        height: ref.height || null,
         order: nextOrder,
       },
     });
-
     newBlocks.push({
       type: "photo",
-      photoIdx: nextOrder + 1, // 1-based
+      photoIdx: nextOrder + 1,
       size: "medium",
       caption: "",
     });

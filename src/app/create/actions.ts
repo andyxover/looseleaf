@@ -1,7 +1,6 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import sharp from "sharp";
 import OpenAI from "openai";
 import type {
   ContentBlockParam,
@@ -19,8 +18,6 @@ const MAX_PHOTOS = 100;
 const AI_MAX_EDGE = 1568;
 const IMAGE_MODEL = process.env.IMAGE_MODEL ?? "gpt-image-2";
 
-// Style modifier appended to every auto-illustration prompt — keeps generated
-// images consistent in look across all photo-less entries.
 const ILLUSTRATION_STYLE = [
   "Flat editorial illustration in the style of a contemporary magazine cover.",
   "Muted warm color palette with one or two accent colors.",
@@ -36,12 +33,6 @@ Given the summary of a journal entry, write ONE concise scene description — ab
 Do NOT include style language like "watercolor" or "illustration"; the style is applied automatically. Focus only on the SCENE: what is happening, who is in it, where.
 
 Respond with the scene description only — no labels, no quotes, no explanation.`;
-
-const SUPPORTED_MIME = new Set<
-  "image/jpeg" | "image/png" | "image/webp" | "image/gif"
->(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-
-type ImageMime = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
 const SYSTEM_PROMPT = `You are an editorial designer laying out a personal photo-journal magazine page.
 
@@ -66,29 +57,16 @@ const layoutTool = {
   input_schema: {
     type: "object" as const,
     properties: {
-      title: {
-        type: "string",
-        description: "Magazine-style headline for the page.",
-      },
-      intro: {
-        type: "string",
-        description: "1-2 sentence dek / standfirst that runs under the title.",
-      },
+      title: { type: "string" },
+      intro: { type: "string" },
       blocks: {
         type: "array",
         items: {
           type: "object",
           properties: {
-            type: {
-              type: "string",
-              enum: ["hero", "text", "photo", "gallery", "quote"],
-            },
-            photoIdx: { type: "integer", description: "1-based photo index." },
-            photoIdxs: {
-              type: "array",
-              items: { type: "integer" },
-              description: "1-based photo indices for gallery blocks.",
-            },
+            type: { type: "string", enum: ["hero", "text", "photo", "gallery", "quote"] },
+            photoIdx: { type: "integer" },
+            photoIdxs: { type: "array", items: { type: "integer" } },
             headline: { type: "string" },
             subhead: { type: "string" },
             markdown: { type: "string" },
@@ -107,6 +85,21 @@ const layoutTool = {
 
 export type CreatePageState = { error: string | null };
 
+type IncomingPhoto = { publicId: string; width: number; height: number };
+
+function cloudinaryAiUrl(publicId: string): string {
+  const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  // c_limit + w/h = preserve aspect, no upscale. q_auto + f_jpg keeps it small.
+  return `https://res.cloudinary.com/${cloud}/image/upload/c_limit,w_${AI_MAX_EDGE},h_${AI_MAX_EDGE},q_85,f_jpg/${publicId}`;
+}
+
+async function fetchAsBase64(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Cloudinary fetch ${res.status} for ${url}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  return buf.toString("base64");
+}
+
 export async function createPage(
   _prev: CreatePageState,
   formData: FormData,
@@ -115,49 +108,48 @@ export async function createPage(
 
   const summary = String(formData.get("summary") ?? "").trim();
   const entryDateRaw = String(formData.get("entryDate") ?? "").trim();
-  // Anchor at noon UTC so the date displays correctly in any timezone (TZ
-  // offsets are bounded by ±14h, so noon UTC stays within the same calendar day).
   const entryDate = entryDateRaw
     ? new Date(`${entryDateRaw}T12:00:00.000Z`)
     : new Date();
   if (Number.isNaN(entryDate.getTime())) {
     return { error: "Please enter a valid entry date." };
   }
-  const files = formData
-    .getAll("photos")
-    .filter((v): v is File => v instanceof File && v.size > 0);
+
+  // Photos arrive as JSON-encoded references from the browser's direct upload.
+  const rawPhotoRefs = formData.getAll("photos");
+  const photoRefs: IncomingPhoto[] = [];
+  for (const raw of rawPhotoRefs) {
+    if (typeof raw !== "string") continue;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.publicId === "string") {
+        photoRefs.push({
+          publicId: parsed.publicId,
+          width: Number(parsed.width) || 0,
+          height: Number(parsed.height) || 0,
+        });
+      }
+    } catch {
+      // ignore malformed entries
+    }
+  }
 
   if (!summary) return { error: "Please add a summary of what happened." };
-  if (files.length > MAX_PHOTOS)
+  if (photoRefs.length > MAX_PHOTOS)
     return { error: `Limit to ${MAX_PHOTOS} photos per page for now.` };
-  // Photo-less entries need a way to produce a visual — only allow them when
-  // OpenAI is configured (we'll auto-generate an illustration).
-  if (files.length === 0 && !process.env.OPENAI_API_KEY) {
+  if (photoRefs.length === 0 && !process.env.OPENAI_API_KEY) {
     return {
       error:
         "Add at least one photo, or configure OPENAI_API_KEY to auto-generate an illustration.",
     };
   }
 
-  for (const file of files) {
-    if (!SUPPORTED_MIME.has(file.type as ImageMime)) {
-      return { error: `Unsupported file type: ${file.type}` };
-    }
-  }
-
   let pageId: string;
   try {
-    const saved: {
-      filePath: string;
-      aiBase64: string;
-      width: number | null;
-      height: number | null;
-    }[] = [];
+    const saved: { publicId: string; width: number; height: number; aiBase64: string }[] = [];
 
-    // If no photos were uploaded, auto-generate one editorial illustration
-    // based on the summary. The rest of the pipeline treats it like any other
-    // photo (the system prompt tells Claude how to use a single auto-illust).
-    if (files.length === 0) {
+    // Zero-photo path: server-side generate one illustration via gpt-image-2.
+    if (photoRefs.length === 0) {
       const openai = new OpenAI();
       const promptResp = await anthropic.messages.create({
         model: MODEL,
@@ -169,7 +161,6 @@ export async function createPage(
         .map((b) => (b.type === "text" ? b.text : ""))
         .join("\n")
         .trim();
-
       const imageResp = await openai.images.generate({
         model: IMAGE_MODEL,
         prompt: `${scenePrompt}\n\n${ILLUSTRATION_STYLE}`,
@@ -180,51 +171,20 @@ export async function createPage(
       const b64 = imageResp.data?.[0]?.b64_json;
       if (!b64) throw new Error("Image model returned no data.");
       const illustration = Buffer.from(b64, "base64");
-
-      const aiBuffer = await sharp(illustration)
-        .resize({
-          width: AI_MAX_EDGE,
-          height: AI_MAX_EDGE,
-          fit: "inside",
-          withoutEnlargement: true,
-        })
-        .jpeg({ quality: 85 })
-        .toBuffer();
       const upload = await uploadImage(illustration);
       saved.push({
-        filePath: upload.publicId,
-        aiBase64: aiBuffer.toString("base64"),
+        publicId: upload.publicId,
         width: upload.width,
         height: upload.height,
+        aiBase64: illustration.toString("base64"),
       });
-    }
-
-    for (const file of files) {
-      const original = Buffer.from(await file.arrayBuffer());
-
-      // EXIF-rotated original for upload (so dimensions and orientation match).
-      const rotated = await sharp(original).rotate().toBuffer();
-
-      // Downsample a copy for Claude: long edge ~1568px, JPEG q85.
-      // Keeps total request well under the 32MB Anthropic limit even with many photos.
-      const aiBuffer = await sharp(rotated)
-        .resize({
-          width: AI_MAX_EDGE,
-          height: AI_MAX_EDGE,
-          fit: "inside",
-          withoutEnlargement: true,
-        })
-        .jpeg({ quality: 85 })
-        .toBuffer();
-
-      const upload = await uploadImage(rotated);
-
-      saved.push({
-        filePath: upload.publicId,
-        aiBase64: aiBuffer.toString("base64"),
-        width: upload.width,
-        height: upload.height,
-      });
+    } else {
+      // Fetch a 1568px-edge JPEG of each photo from Cloudinary for the Claude
+      // vision call. Cloudinary edge resizes for us — no sharp on the function.
+      for (const ref of photoRefs) {
+        const aiBase64 = await fetchAsBase64(cloudinaryAiUrl(ref.publicId));
+        saved.push({ ...ref, aiBase64 });
+      }
     }
 
     const userContent: ContentBlockParam[] = [];
@@ -268,9 +228,9 @@ export async function createPage(
         entryDate,
         photos: {
           create: saved.map((s, i) => ({
-            filePath: s.filePath,
-            width: s.width,
-            height: s.height,
+            filePath: s.publicId,
+            width: s.width || null,
+            height: s.height || null,
             order: i,
           })),
         },
@@ -284,6 +244,5 @@ export async function createPage(
     };
   }
 
-  // Outside the try/catch so the NEXT_REDIRECT signal isn't swallowed.
   redirect(`/journal/${pageId}`);
 }
