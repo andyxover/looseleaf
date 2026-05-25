@@ -9,7 +9,7 @@ import { PhotoImage } from "@/components/PhotoImage";
 export function MagazineSpread({ entries }: { entries: FeedEntry[] }) {
   const reduced = useReducedMotion();
   return (
-    <div className="space-y-20 sm:space-y-28">
+    <div className="space-y-16 sm:space-y-24">
       {entries.map((entry, i) => {
         const flipped = i % 2 === 1;
         const dateLabel = new Date(entry.date)
@@ -32,7 +32,7 @@ export function MagazineSpread({ entries }: { entries: FeedEntry[] }) {
             <Link href={`/journal/${entry.id}`} className="block">
               <div className="grid gap-8 sm:grid-cols-12 sm:gap-12">
                 <div
-                  className={`relative overflow-hidden rounded-xl bg-zinc-100 aspect-[4/5] sm:col-span-7 dark:bg-zinc-900 ${
+                  className={`relative overflow-hidden rounded-xl bg-zinc-100 aspect-[3/2] sm:col-span-7 dark:bg-zinc-900 ${
                     flipped ? "sm:order-2" : ""
                   }`}
                 >
