@@ -67,6 +67,7 @@ You'll receive a JSON array of text segments. Translate each into ${target} and 
 
 Rules:
 - Sound native and editorial — localize idioms, tone, and rhythm. Never word-for-word.
+- Translate each segment FAITHFULLY at the same scope and length. A title stays a one-line title; a caption stays a caption. NEVER expand a short headline into paragraphs, continue the text, invent new sentences, or echo the original alongside the translation.
 - Keep "TCS" and English proper nouns intact (program names, people, places, grade labels like "G8" / "Grade 11", "Terry Fox", university names).
 - Preserve markdown emphasis (*italics*) and emoji exactly where they appear.
 - If a segment is ALREADY in ${target}, return it lightly polished — do not re-translate it awkwardly.
@@ -103,21 +104,47 @@ async function batchTranslate(
   return segments && segments.length === strings.length ? segments : null;
 }
 
-// Translate one segment on its own. Used as a fallback when the batch call
-// returns the wrong number of segments (happens on very long entries where the
-// model fragments the array).
+const oneTool = {
+  name: "submit_translation",
+  description:
+    "Return the faithful translation of EXACTLY the provided text segment — same meaning, same scope, same length register. Do NOT add, continue, elaborate, or invent sentences. Do NOT include the original text. A title stays a title; a caption stays a caption.",
+  input_schema: {
+    type: "object" as const,
+    properties: { translation: { type: "string" } },
+    required: ["translation"],
+  },
+};
+
+const cjkCount = (s: string) => (s.match(/[一-鿿]/g) ?? []).length;
+
+// A translated segment is "corrupt" when the model ignored the translate task
+// and instead generated an article: it ballooned far past the source AND, for
+// an English target, left a heavy run of untranslated Chinese (the source
+// echoed alongside the translation). Used to self-heal individual segments.
+function looksCorrupt(input: string, output: string, target: string): boolean {
+  if (!target.startsWith("English")) return false;
+  const ballooned = output.length > input.length * 2 + 200;
+  return ballooned && cjkCount(output) > 25;
+}
+
+// Translate one segment on its own via a structured tool call — the framing
+// keeps the model from expanding a short headline into a whole article. Used
+// as a fallback when the batch returns the wrong count, and to heal any single
+// segment that came back corrupt.
 async function translateOne(text: string, target: string): Promise<string> {
   if (!text.trim()) return text;
   const resp = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 4096,
-    system: `Translate the user's text into natural, native ${target}. Keep "TCS", English proper nouns, markdown *emphasis*, and emoji intact. Localize idioms — don't translate word-for-word. Reply with ONLY the translation, no preamble.`,
+    system: `You translate discrete CMS text segments into natural, native ${target}. Each request is ONE segment (a title, heading, caption, quote, or paragraph). Translate ONLY that segment, faithfully and at the same length — never expand a headline into an article, never continue the text, never append the source. Keep "TCS", English proper nouns, markdown *emphasis*, and emoji intact. Submit via the tool.`,
+    tools: [oneTool],
+    tool_choice: { type: "tool", name: "submit_translation" },
     messages: [{ role: "user", content: text }],
   });
-  return resp.content
-    .map((b) => (b.type === "text" ? b.text : ""))
-    .join("")
-    .trim();
+  const tu = resp.content.find((b) => b.type === "tool_use");
+  return (
+    (tu?.input as { translation?: string } | undefined)?.translation ?? ""
+  ).trim();
 }
 
 // Translate a layout's text into the target language, preserving all structure
@@ -135,6 +162,14 @@ export async function translateLayout(
     // Fallback: translate each segment individually — bulletproof on count.
     segments = [];
     for (const s of strings) segments.push(await translateOne(s, target));
+  }
+  // Self-heal: re-translate any single segment the model turned into an
+  // article (ballooned + source echoed). One bad segment shouldn't taint the
+  // whole entry, and re-doing just that segment is cheap.
+  for (let i = 0; i < segments.length; i++) {
+    if (looksCorrupt(strings[i], segments[i], target)) {
+      segments[i] = await translateOne(strings[i], target);
+    }
   }
   return applyStrings(layout, segments);
 }
