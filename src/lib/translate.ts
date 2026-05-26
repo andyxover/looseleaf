@@ -85,6 +85,41 @@ const tool = {
   },
 };
 
+async function batchTranslate(
+  strings: string[],
+  target: string,
+): Promise<string[] | null> {
+  const resp = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 16384,
+    system: SYSTEM(target),
+    tools: [tool],
+    tool_choice: { type: "tool", name: "submit_translation" },
+    messages: [{ role: "user", content: JSON.stringify(strings) }],
+  });
+  const toolUse = resp.content.find((b) => b.type === "tool_use");
+  const segments = (toolUse?.input as { segments?: string[] } | undefined)
+    ?.segments;
+  return segments && segments.length === strings.length ? segments : null;
+}
+
+// Translate one segment on its own. Used as a fallback when the batch call
+// returns the wrong number of segments (happens on very long entries where the
+// model fragments the array).
+async function translateOne(text: string, target: string): Promise<string> {
+  if (!text.trim()) return text;
+  const resp = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    system: `Translate the user's text into natural, native ${target}. Keep "TCS", English proper nouns, markdown *emphasis*, and emoji intact. Localize idioms — don't translate word-for-word. Reply with ONLY the translation, no preamble.`,
+    messages: [{ role: "user", content: text }],
+  });
+  return resp.content
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .join("")
+    .trim();
+}
+
 // Translate a layout's text into the target language, preserving all structure
 // (block order, types, photoIdx/photoIdxs, size, spans, framing).
 export async function translateLayout(
@@ -95,22 +130,11 @@ export async function translateLayout(
   const strings = collectStrings(layout);
   if (strings.every((s) => s.trim() === "")) return layout;
 
-  const resp = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 8192,
-    system: SYSTEM(target),
-    tools: [tool],
-    tool_choice: { type: "tool", name: "submit_translation" },
-    messages: [{ role: "user", content: JSON.stringify(strings) }],
-  });
-
-  const toolUse = resp.content.find((b) => b.type === "tool_use");
-  const segments = (toolUse?.input as { segments?: string[] } | undefined)
-    ?.segments;
-  if (!segments || segments.length !== strings.length) {
-    throw new Error(
-      `translation segment mismatch: got ${segments?.length ?? 0}, expected ${strings.length}`,
-    );
+  let segments = await batchTranslate(strings, target);
+  if (!segments) {
+    // Fallback: translate each segment individually — bulletproof on count.
+    segments = [];
+    for (const s of strings) segments.push(await translateOne(s, target));
   }
   return applyStrings(layout, segments);
 }
