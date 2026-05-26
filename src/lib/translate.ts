@@ -118,13 +118,35 @@ const oneTool = {
 const cjkCount = (s: string) => (s.match(/[一-鿿]/g) ?? []).length;
 
 // A translated segment is "corrupt" when the model ignored the translate task
-// and instead generated an article: it ballooned far past the source AND, for
-// an English target, left a heavy run of untranslated Chinese (the source
-// echoed alongside the translation). Used to self-heal individual segments.
+// and instead generated an article — merging the body into a title/headline,
+// continuing the text, or leaving the source untranslated. Used to self-heal
+// individual segments.
 function looksCorrupt(input: string, output: string, target: string): boolean {
-  if (!target.startsWith("English")) return false;
-  const ballooned = output.length > input.length * 2 + 200;
-  return ballooned && cjkCount(output) > 25;
+  const inp = input.trim();
+  // A short single-line segment (title, headline, caption, short quote) must
+  // stay single-line. If it had no break but the translation sprouted a line
+  // break or '---' rule AND grew meaningfully, the model merged/continued it.
+  if (
+    inp.length < 200 &&
+    !inp.includes("\n") &&
+    (output.includes("\n") || output.includes("---")) &&
+    output.length > inp.length * 1.8
+  ) {
+    return true;
+  }
+  // Extreme balloon on any segment — the model generated an article.
+  if (output.length > input.length * 4 + 200) return true;
+  // English output left substantially in Chinese was never translated. Strip
+  // TCS's official Chinese name first — it's a proper noun we deliberately keep
+  // in bylines, and shouldn't count as "untranslated". Use a ratio so a stray
+  // preserved name doesn't trip it; only a real Chinese sentence does.
+  if (target.startsWith("English")) {
+    const stripped = output.replace(/探索未來(國際)?實驗教育機構/g, "");
+    if (stripped.length > 0 && cjkCount(stripped) / stripped.length > 0.3) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // Translate one segment on its own via a structured tool call — the framing
