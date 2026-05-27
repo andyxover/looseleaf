@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { Plus, LogIn, LogOut } from "lucide-react";
+import { Plus, LogIn, LogOut, LayoutGrid } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
 import { isOwner, isEditor } from "@/lib/owner";
@@ -13,7 +13,6 @@ import { PhotoStrip } from "@/components/decor/PhotoStrip";
 import { HomeFeed } from "@/components/HomeFeed";
 import { SearchBar } from "@/components/SearchBar";
 import { BrowseEntries } from "@/components/BrowseEntries";
-import { TimelineRail } from "@/components/TimelineRail";
 import { LangToggle } from "@/components/LangToggle";
 import { pageToEntry } from "@/lib/feed";
 import { getLang, resolveLayoutJson } from "@/lib/lang";
@@ -94,13 +93,6 @@ export default async function Home({
 
   return (
     <div className="relative z-10">
-      {allEntries.length >= 2 && (
-        <TimelineRail
-          newest={allEntries[0].date}
-          oldest={allEntries[allEntries.length - 1].date}
-          anchor={d ?? null}
-        />
-      )}
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[55vh] overflow-hidden">
         <AmbientOrb
           variant="warm"
@@ -120,6 +112,13 @@ export default async function Home({
             Looseleaf
           </Link>
           <div className="flex items-center gap-1 sm:gap-1.5">
+            <Link
+              href="/timeline"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-zinc-500 transition hover:text-zinc-900 dark:hover:text-zinc-100"
+            >
+              <LayoutGrid className="size-4" />
+              <span className="hidden sm:inline">Timeline</span>
+            </Link>
             <LangToggle initial={lang} />
             {showAuthChrome &&
               (editor ? (

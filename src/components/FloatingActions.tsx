@@ -26,6 +26,7 @@ export function FloatingActions() {
 
   const isHome = pathname === "/";
   const isShared = pathname?.startsWith("/share/") ?? false;
+  const isTimeline = pathname === "/timeline";
   const journalId = pathname?.match(/^\/journal\/([^/]+)$/)?.[1] ?? null;
 
   const [liked, setLiked] = useState(false);
@@ -45,8 +46,9 @@ export function FloatingActions() {
     };
   }, [journalId]);
 
-  // On a shared entry, hide the cluster entirely (recipient has no nav back).
-  if (isShared) return null;
+  // Hidden on shared entries (no nav back) and on the timeline (its scrubber
+  // owns the right edge).
+  if (isShared || isTimeline) return null;
 
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: "smooth" });
