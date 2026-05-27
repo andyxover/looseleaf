@@ -13,6 +13,7 @@ import { uploadImage } from "@/lib/storage";
 import { isEditor } from "@/lib/owner";
 import { translateLayout } from "@/lib/translate";
 import type { Layout } from "@/lib/layout";
+import { extractCloudinaryPublicIds, htmlToPlainText } from "@/lib/richtext";
 
 const MODEL = "claude-sonnet-4-6";
 const MAX_PHOTOS = 100;
@@ -99,30 +100,6 @@ async function fetchAsBase64(url: string): Promise<string> {
   if (!res.ok) throw new Error(`Cloudinary fetch ${res.status} for ${url}`);
   const buf = Buffer.from(await res.arrayBuffer());
   return buf.toString("base64");
-}
-
-// Pull the Cloudinary public_ids out of inline <img> tags in the rich body, in
-// document order, de-duplicated. The editor inserts URLs shaped like
-// .../image/upload/<transforms>/<publicId>. public_ids may contain folders.
-function extractCloudinaryPublicIds(html: string): string[] {
-  const re =
-    /res\.cloudinary\.com\/[^/]+\/image\/upload\/[^/"']+\/([^"'\s)]+)/g;
-  const ids: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
-    const id = decodeURIComponent(m[1]);
-    if (!ids.includes(id)) ids.push(id);
-  }
-  return ids;
-}
-
-function htmlToPlainText(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 // Manual creation: no AI, no API spend. Stores the author's rich body (from the

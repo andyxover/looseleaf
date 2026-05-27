@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireEditor, isEditor } from "@/lib/owner";
 import type { Block, Layout } from "@/lib/layout";
+import { extractCloudinaryPublicIds, htmlToPlainText } from "@/lib/richtext";
 
 type IncomingPhoto = { publicId: string; width: number; height: number };
 
@@ -44,6 +45,62 @@ export async function updatePageLayout(
       ...(parsedEntryDate ? { entryDate: parsedEntryDate } : {}),
     },
   });
+  revalidatePath(`/journal/${id}`);
+  revalidatePath("/");
+}
+
+// Save a "Build it myself" (richtext) post: rewrite the richtext block and
+// re-sync Photo rows from the inline images (so the cover/archive track edits).
+export async function updateRichPost(
+  id: string,
+  title: string,
+  html: string,
+  entryDate?: string,
+) {
+  await requireEditor();
+  const intro = htmlToPlainText(html).slice(0, 200);
+  const publicIds = extractCloudinaryPublicIds(html);
+  const layout: Layout = {
+    title: title.trim() || "Untitled",
+    intro,
+    blocks: [{ type: "richtext", html }],
+  };
+
+  let parsedEntryDate: Date | null = null;
+  if (entryDate) {
+    const iso = /^\d{4}-\d{2}-\d{2}$/.test(entryDate)
+      ? `${entryDate}T12:00:00.000Z`
+      : entryDate;
+    parsedEntryDate = new Date(iso);
+    if (Number.isNaN(parsedEntryDate.getTime())) {
+      throw new Error("Invalid entry date");
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.photo.deleteMany({ where: { pageId: id } });
+    if (publicIds.length > 0) {
+      await tx.photo.createMany({
+        data: publicIds.map((pid, i) => ({
+          pageId: id,
+          filePath: pid,
+          order: i,
+        })),
+      });
+    }
+    await tx.page.update({
+      where: { id },
+      data: {
+        title: layout.title,
+        summary: intro,
+        layoutJson: JSON.stringify(layout),
+        layoutEn: null,
+        layoutZh: null,
+        ...(parsedEntryDate ? { entryDate: parsedEntryDate } : {}),
+      },
+    });
+  });
+
   revalidatePath(`/journal/${id}`);
   revalidatePath("/");
 }

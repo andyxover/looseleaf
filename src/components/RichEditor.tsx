@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import ImageExt from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -14,11 +15,13 @@ import {
   List,
   ListOrdered,
   ImagePlus,
+  Link2,
   Loader2,
 } from "lucide-react";
 
 import { compressImage } from "@/lib/compress";
 import { uploadToCloudinary } from "@/lib/cloudinary-client";
+import { SlashCommand } from "@/components/editor/slashCommand";
 
 function cloudUrl(publicId: string): string {
   const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -60,10 +63,19 @@ export function RichEditor({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        link: {
+          openOnClick: false,
+          autolink: true,
+          HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
+        },
+      }),
       ImageExt.configure({ inline: false, allowBase64: false }),
       Placeholder.configure({
-        placeholder: "Write your story… paste or drop photos right into the text.",
+        placeholder: 'Write your story… type "/" for blocks, or paste a photo.',
+      }),
+      SlashCommand.configure({
+        onInsertImage: () => fileInputRef.current?.click(),
       }),
     ],
     content: initialHTML ?? "",
@@ -104,6 +116,18 @@ export function RichEditor({
     },
   });
 
+  function setLink() {
+    if (!editor) return;
+    const prev = (editor.getAttributes("link").href as string | undefined) ?? "";
+    const url = window.prompt("Link URL", prev || "https://");
+    if (url === null) return;
+    if (url.trim() === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url.trim() }).run();
+  }
+
   const btn =
     "grid size-9 place-items-center rounded-lg text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800";
   const btnActive = "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900";
@@ -138,6 +162,9 @@ export function RichEditor({
           <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={tbBtn(editor.isActive("orderedList"))} aria-label="Numbered list">
             <ListOrdered className="size-4" />
           </button>
+          <button type="button" onClick={setLink} className={tbBtn(editor.isActive("link"))} aria-label="Link">
+            <Link2 className="size-4" />
+          </button>
           <span className="mx-1 h-5 w-px bg-zinc-200 dark:bg-zinc-800" />
           <button type="button" onClick={() => fileInputRef.current?.click()} className={btn} aria-label="Insert photo">
             <ImagePlus className="size-4" />
@@ -160,6 +187,25 @@ export function RichEditor({
             }}
           />
         </div>
+      )}
+      {editor && (
+        <BubbleMenu
+          editor={editor}
+          className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+        >
+          <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={tbBtn(editor.isActive("bold"))} aria-label="Bold">
+            <Bold className="size-4" />
+          </button>
+          <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={tbBtn(editor.isActive("italic"))} aria-label="Italic">
+            <Italic className="size-4" />
+          </button>
+          <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={tbBtn(editor.isActive("heading", { level: 2 }))} aria-label="Heading">
+            <Heading2 className="size-4" />
+          </button>
+          <button type="button" onClick={setLink} className={tbBtn(editor.isActive("link"))} aria-label="Link">
+            <Link2 className="size-4" />
+          </button>
+        </BubbleMenu>
       )}
       <div className="px-5 py-5 sm:px-7 sm:py-7">
         <EditorContent editor={editor} />

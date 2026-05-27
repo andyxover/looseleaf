@@ -5,16 +5,8 @@ import { useRouter } from "next/navigation";
 import { Loader2, Check } from "lucide-react";
 
 import { RichEditor } from "@/components/RichEditor";
-import { updatePageLayout } from "@/app/journal/[id]/actions";
+import { updateRichPost } from "@/app/journal/[id]/actions";
 import type { Layout } from "@/lib/layout";
-
-function plainText(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 200);
-}
 
 // Owner editor for "Build it myself" (richtext) posts — same Tiptap surface as
 // creating, plus title + date. Saves back into the page's richtext block.
@@ -41,13 +33,8 @@ export function RichJournalEditor({
     if (saving) return;
     setSaving(true);
     setSaved(false);
-    const layout: Layout = {
-      title: title.trim() || "Untitled",
-      intro: plainText(body),
-      blocks: [{ type: "richtext", html: body }],
-    };
     try {
-      await updatePageLayout(pageId, layout, entryDate);
+      await updateRichPost(pageId, title, body, entryDate);
       setSaved(true);
       router.refresh();
     } catch (e) {
