@@ -13,15 +13,28 @@ import { PhotoStrip } from "@/components/decor/PhotoStrip";
 import { HomeFeed } from "@/components/HomeFeed";
 import { SearchBar } from "@/components/SearchBar";
 import { BrowseEntries } from "@/components/BrowseEntries";
+import { TimelineRail } from "@/components/TimelineRail";
 import { LangToggle } from "@/components/LangToggle";
 import { pageToEntry } from "@/lib/feed";
 import { getLang, resolveLayoutJson } from "@/lib/lang";
 
 const INITIAL_PAGE = 40;
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ d?: string }>;
+}) {
+  const { d } = await searchParams;
+  // Optional timeline anchor: start the feed at this date and page older.
+  const anchorDate =
+    d && /^\d{4}-\d{2}-\d{2}$/.test(d)
+      ? new Date(`${d}T23:59:59.999Z`)
+      : null;
+
   const [rows, owner, editor, stripPhotos, lang, allRows] = await Promise.all([
     prisma.page.findMany({
+      where: anchorDate ? { entryDate: { lte: anchorDate } } : undefined,
       orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
       take: INITIAL_PAGE,
       include: {
@@ -81,6 +94,13 @@ export default async function Home() {
 
   return (
     <div className="relative z-10">
+      {allEntries.length >= 2 && (
+        <TimelineRail
+          newest={allEntries[0].date}
+          oldest={allEntries[allEntries.length - 1].date}
+          anchor={d ?? null}
+        />
+      )}
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[55vh] overflow-hidden">
         <AmbientOrb
           variant="warm"
