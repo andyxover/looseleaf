@@ -103,6 +103,7 @@ export default async function JournalPage({
       <ViewCounter pageId={id} skip={editor} />
       <PostEngagement
         pageId={id}
+        title={readLayout.title}
         views={page.views}
         likeCount={likeCount}
         liked={!!likedRow}

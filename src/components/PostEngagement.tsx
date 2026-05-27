@@ -10,6 +10,7 @@ import {
   deleteComment,
   type CommentDTO,
 } from "@/app/engagement-actions";
+import { ShareButton } from "@/components/ShareButton";
 
 function fmt(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -21,6 +22,7 @@ function fmt(iso: string): string {
 
 export function PostEngagement({
   pageId,
+  title,
   views,
   likeCount,
   liked,
@@ -28,6 +30,7 @@ export function PostEngagement({
   isOwner,
 }: {
   pageId: string;
+  title: string;
   views: number;
   likeCount: number;
   liked: boolean;
@@ -123,6 +126,9 @@ export function PostEngagement({
           {views.toLocaleString()}
           <span className="text-zinc-400">{views === 1 ? "view" : "views"}</span>
         </span>
+        <div className="ml-auto">
+          <ShareButton title={title} />
+        </div>
       </div>
 
       {/* Comments */}
