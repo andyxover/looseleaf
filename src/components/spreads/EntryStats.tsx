@@ -10,7 +10,8 @@ export function EntryStats({
   views: number;
   className?: string;
 }) {
-  if (likeCount === 0 && views === 0) return null;
+  // Always shown (even at zero) so every card carries its like/view counts —
+  // clear but quiet.
   return (
     <span
       className={`inline-flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.2em] ${className}`}

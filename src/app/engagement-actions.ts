@@ -45,6 +45,24 @@ export async function recordView(pageId: string): Promise<void> {
   }
 }
 
+// Read-only current like state for this visitor — used by the floating
+// like button to seed itself on a journal page.
+export async function getLikeState(
+  pageId: string,
+): Promise<{ liked: boolean; count: number }> {
+  const jar = await cookies();
+  const visitorId = jar.get(VISITOR_COOKIE)?.value ?? null;
+  const [count, likedRow] = await Promise.all([
+    prisma.like.count({ where: { pageId } }),
+    visitorId
+      ? prisma.like.findUnique({
+          where: { pageId_visitorId: { pageId, visitorId } },
+        })
+      : Promise.resolve(null),
+  ]);
+  return { liked: !!likedRow, count };
+}
+
 export async function toggleLike(
   pageId: string,
 ): Promise<{ liked: boolean; count: number }> {
