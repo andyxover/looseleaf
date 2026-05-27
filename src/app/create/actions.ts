@@ -12,7 +12,7 @@ import { anthropic } from "@/lib/anthropic";
 import { uploadImage } from "@/lib/storage";
 import { isEditor } from "@/lib/owner";
 import { translateLayout } from "@/lib/translate";
-import type { Layout } from "@/lib/layout";
+import type { Layout, Block } from "@/lib/layout";
 
 const MODEL = "claude-sonnet-4-6";
 const MAX_PHOTOS = 100;
@@ -99,6 +99,89 @@ async function fetchAsBase64(url: string): Promise<string> {
   if (!res.ok) throw new Error(`Cloudinary fetch ${res.status} for ${url}`);
   const buf = Buffer.from(await res.arrayBuffer());
   return buf.toString("base64");
+}
+
+// Manual creation: no AI, no API spend. Seed a simple starter layout from the
+// title + uploaded photos and drop the editor straight into the inline editor
+// to compose. Translation is skipped (the author writes their own copy and can
+// translate later); rendering falls back to the canonical layout.
+export async function createPageManual(
+  _prev: CreatePageState,
+  formData: FormData,
+): Promise<CreatePageState> {
+  if (!(await isEditor())) return { error: "Sign in first." };
+
+  const title = String(formData.get("title") ?? "").trim();
+  const intro = String(formData.get("summary") ?? "").trim();
+  const entryDateRaw = String(formData.get("entryDate") ?? "").trim();
+  const entryDate = entryDateRaw
+    ? new Date(`${entryDateRaw}T12:00:00.000Z`)
+    : new Date();
+  if (Number.isNaN(entryDate.getTime())) {
+    return { error: "Please enter a valid entry date." };
+  }
+  if (!title) return { error: "Give your entry a title." };
+
+  const rawPhotoRefs = formData.getAll("photos");
+  const photoRefs: IncomingPhoto[] = [];
+  for (const raw of rawPhotoRefs) {
+    if (typeof raw !== "string") continue;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.publicId === "string") {
+        photoRefs.push({
+          publicId: parsed.publicId,
+          width: Number(parsed.width) || 0,
+          height: Number(parsed.height) || 0,
+        });
+      }
+    } catch {
+      // ignore malformed entries
+    }
+  }
+  if (photoRefs.length > MAX_PHOTOS)
+    return { error: `Limit to ${MAX_PHOTOS} photos per page for now.` };
+
+  const blocks: Block[] = [];
+  if (photoRefs.length > 0) {
+    blocks.push({ type: "hero", photoIdx: 0, headline: title });
+  }
+  blocks.push({ type: "text", markdown: intro || "Start writing your story here…" });
+  if (photoRefs.length > 1) {
+    blocks.push({
+      type: "gallery",
+      photoIdxs: photoRefs.map((_, i) => i).slice(1),
+    });
+  }
+  const layout: Layout = { title, intro, blocks };
+
+  let pageId: string;
+  try {
+    const page = await prisma.page.create({
+      data: {
+        title,
+        summary: intro,
+        layoutJson: JSON.stringify(layout),
+        entryDate,
+        photos: {
+          create: photoRefs.map((s, i) => ({
+            filePath: s.publicId,
+            width: s.width || null,
+            height: s.height || null,
+            order: i,
+          })),
+        },
+      },
+    });
+    pageId = page.id;
+  } catch (e) {
+    console.error("createPageManual failed:", e);
+    return {
+      error: e instanceof Error ? e.message : "Failed to create the entry.",
+    };
+  }
+
+  redirect(`/journal/${pageId}`);
 }
 
 export async function createPage(

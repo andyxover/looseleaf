@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Loader2, X, Upload, ArrowLeft } from "lucide-react";
 
-import { createPage, type CreatePageState } from "./actions";
+import { createPage, createPageManual, type CreatePageState } from "./actions";
 import { compressImage } from "@/lib/compress";
 import { uploadToCloudinary } from "@/lib/cloudinary-client";
 
@@ -32,6 +32,8 @@ export default function CreateForm() {
   const [previews, setPreviews] = useState<Preview[]>([]);
   const [summary, setSummary] = useState("");
   const [entryDate, setEntryDate] = useState(todayLocal);
+  const [mode, setMode] = useState<"ai" | "manual">("ai");
+  const [title, setTitle] = useState("");
 
   const inFlight = previews.filter(
     (p) => p.status === "preparing" || p.status === "uploading",
@@ -43,7 +45,11 @@ export default function CreateForm() {
     prev: CreatePageState,
     formData: FormData,
   ): Promise<CreatePageState> {
-    if (!summary.trim()) return { error: "Tell me what happened." };
+    if (mode === "manual") {
+      if (!title.trim()) return { error: "Give your entry a title." };
+    } else if (!summary.trim()) {
+      return { error: "Tell me what happened." };
+    }
     formData.delete("photos");
     for (const p of uploaded) {
       formData.append(
@@ -56,8 +62,11 @@ export default function CreateForm() {
       );
     }
     formData.set("summary", summary);
+    formData.set("title", title);
     formData.set("entryDate", entryDate);
-    return createPage(prev, formData);
+    return mode === "manual"
+      ? createPageManual(prev, formData)
+      : createPage(prev, formData);
   }
 
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -141,10 +150,39 @@ export default function CreateForm() {
 
       <h1 className="mt-6 font-serif text-4xl tracking-tight">New entry</h1>
       <p className="mt-2 text-zinc-500">
-        Drop in some photos and tell me what happened. I&apos;ll lay it out.
+        {mode === "ai"
+          ? "Drop in some photos and tell me what happened. I’ll lay it out."
+          : "Add a title and photos, then compose the page yourself in the editor."}
       </p>
 
-      <form action={formAction} className="mt-10 space-y-8">
+      <div className="mt-6 inline-flex rounded-full border border-zinc-200 p-1 dark:border-zinc-800">
+        <button
+          type="button"
+          onClick={() => setMode("ai")}
+          aria-pressed={mode === "ai"}
+          className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+            mode === "ai"
+              ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+              : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+          }`}
+        >
+          ✨ AI layout
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("manual")}
+          aria-pressed={mode === "manual"}
+          className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+            mode === "manual"
+              ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+              : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+          }`}
+        >
+          ✍️ Build it myself
+        </button>
+      </div>
+
+      <form action={formAction} className="mt-8 space-y-8">
         <label
           htmlFor="photos-input"
           className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-zinc-300 px-6 py-12 transition hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
@@ -210,6 +248,21 @@ export default function CreateForm() {
           </div>
         )}
 
+        {mode === "manual" && (
+          <div>
+            <label htmlFor="title" className="mb-2 block text-sm font-medium">
+              Title
+            </label>
+            <input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="A Purple Whirlwind Arrives…"
+              className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-base outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-600"
+            />
+          </div>
+        )}
+
         <div>
           <label htmlFor="entry-date" className="mb-2 block text-sm font-medium">
             When did it happen?
@@ -225,14 +278,18 @@ export default function CreateForm() {
 
         <div>
           <label htmlFor="summary" className="mb-2 block text-sm font-medium">
-            What happened?
+            {mode === "ai" ? "What happened?" : "Intro (optional)"}
           </label>
           <textarea
             id="summary"
             rows={6}
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
-            placeholder="Friday after school we walked to the park with Maya and Jules. The light was perfect and we stayed until it got cold. Maya brought her film camera. We talked about..."
+            placeholder={
+              mode === "ai"
+                ? "Friday after school we walked to the park with Maya and Jules. The light was perfect and we stayed until it got cold. Maya brought her film camera. We talked about..."
+                : "An optional opening line or two — you can also write everything in the editor afterward."
+            }
             className="w-full resize-y rounded-lg border border-zinc-200 bg-white px-4 py-3 text-base leading-7 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-600"
           />
         </div>
@@ -256,10 +313,12 @@ export default function CreateForm() {
           {pending ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Designing your page…
+              {mode === "ai" ? "Designing your page…" : "Creating…"}
             </>
-          ) : (
+          ) : mode === "ai" ? (
             "Generate page"
+          ) : (
+            "Create & edit"
           )}
         </button>
       </form>
