@@ -12,6 +12,7 @@ import { MagneticButton } from "@/components/decor/MagneticButton";
 import { PhotoStrip } from "@/components/decor/PhotoStrip";
 import { HomeFeed } from "@/components/HomeFeed";
 import { SearchBar } from "@/components/SearchBar";
+import { BrowseEntries } from "@/components/BrowseEntries";
 import { LangToggle } from "@/components/LangToggle";
 import { pageToEntry } from "@/lib/feed";
 import { getLang, resolveLayoutJson } from "@/lib/lang";
@@ -19,7 +20,7 @@ import { getLang, resolveLayoutJson } from "@/lib/lang";
 const INITIAL_PAGE = 40;
 
 export default async function Home() {
-  const [rows, owner, editor, stripPhotos, lang] = await Promise.all([
+  const [rows, owner, editor, stripPhotos, lang, allRows] = await Promise.all([
     prisma.page.findMany({
       orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
       take: INITIAL_PAGE,
@@ -36,6 +37,11 @@ export default async function Home() {
       select: { filePath: true, width: true, height: true },
     }),
     getLang(),
+    // Lightweight index of every entry for the Browse dropdown.
+    prisma.page.findMany({
+      orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+      select: { id: true, title: true, entryDate: true },
+    }),
   ]);
   const showAuthChrome = isSupabaseConfigured();
   // Which of these entries the current anonymous visitor has already liked.
@@ -67,6 +73,11 @@ export default async function Home() {
     rows.length === INITIAL_PAGE
       ? rows[rows.length - 1].entryDate.toISOString()
       : null;
+  const allEntries = allRows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    date: r.entryDate.toISOString(),
+  }));
 
   return (
     <div className="relative z-10">
@@ -145,8 +156,11 @@ export default async function Home() {
         </FadeIn>
         {initialEntries.length > 0 && (
           <FadeIn delay={0.42}>
-            <div className="mx-auto mt-12 max-w-md">
-              <SearchBar />
+            <div className="mx-auto mt-12 flex max-w-xl items-stretch gap-2 text-left">
+              <div className="min-w-0 flex-1">
+                <SearchBar />
+              </div>
+              <BrowseEntries entries={allEntries} />
             </div>
           </FadeIn>
         )}
