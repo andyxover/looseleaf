@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 
 import type { FeedEntry } from "@/lib/feed";
 import { PhotoImage } from "@/components/PhotoImage";
+import { EntryStats } from "@/components/spreads/EntryStats";
 
 export function ListSpread({ entries }: { entries: FeedEntry[] }) {
   const reduced = useReducedMotion();
@@ -47,6 +48,11 @@ export function ListSpread({ entries }: { entries: FeedEntry[] }) {
                   <span className="text-zinc-400">
                     {entry.photoCount.toString().padStart(2, "0")} ph
                   </span>
+                  <EntryStats
+                    likeCount={entry.likeCount}
+                    views={entry.views}
+                    className="text-zinc-400"
+                  />
                 </div>
                 <h3 className="font-serif text-xl leading-snug tracking-tight transition group-hover:text-zinc-500 dark:group-hover:text-zinc-400 sm:text-2xl">
                   {entry.title}

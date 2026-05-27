@@ -9,6 +9,8 @@ export type FeedEntry = {
   date: string; // ISO
   cover?: string | null; // Cloudinary public_id or local "/uploads/..." path
   photoCount: number;
+  views: number;
+  likeCount: number;
   quote?: { text: string; attribution?: string } | null;
 };
 
@@ -36,6 +38,8 @@ type RawPage = {
   layoutJson: string;
   photos: { filePath: string }[];
   _photoCount: number;
+  views: number;
+  _likeCount: number;
 };
 
 export function pageToEntry(p: RawPage): FeedEntry {
@@ -70,6 +74,8 @@ export function pageToEntry(p: RawPage): FeedEntry {
     date: p.entryDate.toISOString(),
     cover: p.photos[0]?.filePath ?? null,
     photoCount: p._photoCount,
+    views: p.views,
+    likeCount: p._likeCount,
     quote,
   };
 }

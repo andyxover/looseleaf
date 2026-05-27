@@ -8,15 +8,41 @@ datasource db {
 }
 
 model Page {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   title      String
   summary    String
   layoutJson String
   layoutEn   String?
   layoutZh   String?
-  createdAt  DateTime @default(now())
-  entryDate  DateTime @default(now())
+  views      Int       @default(0)
+  createdAt  DateTime  @default(now())
+  entryDate  DateTime  @default(now())
   photos     Photo[]
+  likes      Like[]
+  comments   Comment[]
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  pageId    String
+  visitorId String
+  createdAt DateTime @default(now())
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, visitorId])
+  @@index([pageId])
+}
+
+model Comment {
+  id         String    @id @default(cuid())
+  pageId     String
+  authorName String
+  body       String
+  createdAt  DateTime  @default(now())
+  editedAt   DateTime?
+  page       Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
 }
 
 model Photo {

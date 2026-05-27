@@ -23,7 +23,7 @@ export async function loadMoreEntries(
     take: PAGE_SIZE,
     include: {
       photos: { orderBy: { order: "asc" }, take: 1 },
-      _count: { select: { photos: true } },
+      _count: { select: { photos: true, likes: true } },
     },
   });
 
@@ -35,6 +35,8 @@ export async function loadMoreEntries(
       layoutJson: resolveLayoutJson(p, lang),
       photos: p.photos.map((ph) => ({ filePath: ph.filePath })),
       _photoCount: p._count.photos,
+      views: p.views,
+      _likeCount: p._count.likes,
     }),
   );
   const nextCursor =

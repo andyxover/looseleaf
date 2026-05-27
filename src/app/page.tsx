@@ -24,7 +24,7 @@ export default async function Home() {
       take: INITIAL_PAGE,
       include: {
         photos: { orderBy: { order: "asc" }, take: 1 },
-        _count: { select: { photos: true } },
+        _count: { select: { photos: true, likes: true } },
       },
     }),
     isOwner(),
@@ -45,6 +45,8 @@ export default async function Home() {
       layoutJson: resolveLayoutJson(p, lang),
       photos: p.photos.map((ph) => ({ filePath: ph.filePath })),
       _photoCount: p._count.photos,
+      views: p.views,
+      _likeCount: p._count.likes,
     }),
   );
   const initialCursor =

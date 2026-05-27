@@ -12,6 +12,7 @@ import {
 
 import type { FeedEntry } from "@/lib/feed";
 import { PhotoImage } from "@/components/PhotoImage";
+import { EntryStats } from "@/components/spreads/EntryStats";
 
 export function FeaturedHero({ entry }: { entry: FeedEntry }) {
   const reduced = useReducedMotion();
@@ -82,6 +83,11 @@ export function FeaturedHero({ entry }: { entry: FeedEntry }) {
                 {entry.intro}
               </p>
             )}
+            <EntryStats
+              likeCount={entry.likeCount}
+              views={entry.views}
+              className="mt-5 text-white/70"
+            />
           </div>
         </motion.div>
       </Link>
