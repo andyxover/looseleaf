@@ -2,11 +2,13 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
+import { isOwner } from "@/lib/owner";
 import { TimelineGrid, type TimelineEntry } from "@/components/TimelineGrid";
 
 export const metadata = { title: "Timeline — Looseleaf" };
 
 export default async function TimelinePage() {
+  const admin = await isOwner();
   const rows = await prisma.page.findMany({
     orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
     select: {
@@ -38,7 +40,7 @@ export default async function TimelinePage() {
           <span className="ml-2 text-zinc-400">{entries.length}</span>
         </span>
       </header>
-      <TimelineGrid entries={entries} />
+      <TimelineGrid entries={entries} isOwner={admin} />
     </div>
   );
 }

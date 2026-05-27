@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 
 import { PhotoImage } from "@/components/PhotoImage";
+import { deleteEntry } from "@/app/journal/[id]/actions";
 
 export type TimelineEntry = {
   id: string;
@@ -30,7 +33,23 @@ function fmtDay(iso: string): string {
 // A justified, virtualized photo-grid of every entry with a live drag-scrubber
 // on the right. Uniform square tiles → row heights are known without
 // rendering, so scroll position ↔ date is exact and only on-screen rows mount.
-export function TimelineGrid({ entries }: { entries: TimelineEntry[] }) {
+export function TimelineGrid({
+  entries,
+  isOwner = false,
+}: {
+  entries: TimelineEntry[];
+  isOwner?: boolean;
+}) {
+  const router = useRouter();
+
+  async function onDelete(ev: React.MouseEvent, id: string, title: string) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!confirm(`Delete "${title}"? This can't be undone.`)) return;
+    const res = await deleteEntry(id);
+    if ("ok" in res) router.refresh();
+  }
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -139,6 +158,16 @@ export function TimelineGrid({ entries }: { entries: TimelineEntry[] }) {
                   {e.title}
                 </span>
               </span>
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={(ev) => onDelete(ev, e.id, e.title)}
+                  aria-label="Delete entry"
+                  className="absolute right-1.5 top-1.5 z-10 grid size-7 place-items-center rounded-full bg-black/55 text-white/90 backdrop-blur transition hover:bg-red-600 hover:text-white"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
             </Link>
           ))}
         </div>

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
-import { requireEditor, isEditor } from "@/lib/owner";
+import { requireEditor, isEditor, isOwner } from "@/lib/owner";
 import type { Block, Layout } from "@/lib/layout";
 import { extractCloudinaryPublicIds, htmlToPlainText } from "@/lib/richtext";
 
@@ -109,6 +109,17 @@ export async function deletePage(id: string) {
   await requireEditor();
   await prisma.page.delete({ where: { id } });
   redirect("/");
+}
+
+// Super-admin quick delete (no redirect) — used by the timeline grid.
+export async function deleteEntry(
+  id: string,
+): Promise<{ ok: true } | { error: string }> {
+  if (!(await isOwner())) return { error: "Not allowed." };
+  await prisma.page.delete({ where: { id } });
+  revalidatePath("/");
+  revalidatePath("/timeline");
+  return { ok: true };
 }
 
 export type AddPhotosState = { error: string | null };
