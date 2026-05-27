@@ -8,6 +8,7 @@ import { Loader2, X, Upload, ArrowLeft } from "lucide-react";
 import { createPage, createPageManual, type CreatePageState } from "./actions";
 import { compressImage } from "@/lib/compress";
 import { uploadToCloudinary } from "@/lib/cloudinary-client";
+import { RichEditor } from "@/components/RichEditor";
 
 type Preview = {
   localUrl: string;
@@ -34,6 +35,7 @@ export default function CreateForm() {
   const [entryDate, setEntryDate] = useState(todayLocal);
   const [mode, setMode] = useState<"ai" | "manual">("ai");
   const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
 
   const inFlight = previews.filter(
     (p) => p.status === "preparing" || p.status === "uploading",
@@ -45,12 +47,18 @@ export default function CreateForm() {
     prev: CreatePageState,
     formData: FormData,
   ): Promise<CreatePageState> {
+    formData.delete("photos");
+    formData.set("title", title);
+    formData.set("entryDate", entryDate);
+
     if (mode === "manual") {
       if (!title.trim()) return { error: "Give your entry a title." };
-    } else if (!summary.trim()) {
-      return { error: "Tell me what happened." };
+      // Inline images live in the body HTML; the server extracts them.
+      formData.set("body", body);
+      return createPageManual(prev, formData);
     }
-    formData.delete("photos");
+
+    if (!summary.trim()) return { error: "Tell me what happened." };
     for (const p of uploaded) {
       formData.append(
         "photos",
@@ -62,11 +70,7 @@ export default function CreateForm() {
       );
     }
     formData.set("summary", summary);
-    formData.set("title", title);
-    formData.set("entryDate", entryDate);
-    return mode === "manual"
-      ? createPageManual(prev, formData)
-      : createPage(prev, formData);
+    return createPage(prev, formData);
   }
 
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -152,7 +156,7 @@ export default function CreateForm() {
       <p className="mt-2 text-zinc-500">
         {mode === "ai"
           ? "Drop in some photos and tell me what happened. I’ll lay it out."
-          : "Add a title and photos, then compose the page yourself in the editor."}
+          : "Write your entry — paste or drop photos right into the text as you go."}
       </p>
 
       <div className="mt-6 inline-flex rounded-full border border-zinc-200 p-1 dark:border-zinc-800">
@@ -183,7 +187,8 @@ export default function CreateForm() {
       </div>
 
       <form action={formAction} className="mt-8 space-y-8">
-        <label
+        {mode === "ai" && (
+          <label
           htmlFor="photos-input"
           className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-zinc-300 px-6 py-12 transition hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
         >
@@ -206,9 +211,10 @@ export default function CreateForm() {
             className="hidden"
             onChange={(e) => addFiles(e.target.files)}
           />
-        </label>
+          </label>
+        )}
 
-        {previews.length > 0 && (
+        {mode === "ai" && previews.length > 0 && (
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
             {previews.map((p, i) => (
               <div
@@ -276,23 +282,26 @@ export default function CreateForm() {
           />
         </div>
 
-        <div>
-          <label htmlFor="summary" className="mb-2 block text-sm font-medium">
-            {mode === "ai" ? "What happened?" : "Intro (optional)"}
-          </label>
-          <textarea
-            id="summary"
-            rows={6}
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            placeholder={
-              mode === "ai"
-                ? "Friday after school we walked to the park with Maya and Jules. The light was perfect and we stayed until it got cold. Maya brought her film camera. We talked about..."
-                : "An optional opening line or two — you can also write everything in the editor afterward."
-            }
-            className="w-full resize-y rounded-lg border border-zinc-200 bg-white px-4 py-3 text-base leading-7 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-600"
-          />
-        </div>
+        {mode === "ai" ? (
+          <div>
+            <label htmlFor="summary" className="mb-2 block text-sm font-medium">
+              What happened?
+            </label>
+            <textarea
+              id="summary"
+              rows={6}
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              placeholder="Friday after school we walked to the park with Maya and Jules. The light was perfect and we stayed until it got cold. Maya brought her film camera. We talked about..."
+              className="w-full resize-y rounded-lg border border-zinc-200 bg-white px-4 py-3 text-base leading-7 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:focus:border-zinc-600"
+            />
+          </div>
+        ) : (
+          <div>
+            <label className="mb-2 block text-sm font-medium">Your story</label>
+            <RichEditor onChange={setBody} />
+          </div>
+        )}
 
         {errored.length > 0 && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
@@ -318,7 +327,7 @@ export default function CreateForm() {
           ) : mode === "ai" ? (
             "Generate page"
           ) : (
-            "Create & edit"
+            "Publish entry"
           )}
         </button>
       </form>

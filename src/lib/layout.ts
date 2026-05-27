@@ -25,7 +25,10 @@ export type Block =
       framings?: (Framing | null)[];
       caption?: string;
     }
-  | { type: "quote"; text: string; attribution?: string };
+  | { type: "quote"; text: string; attribution?: string }
+  // Free-form rich body authored in the Tiptap editor ("Build it myself").
+  // Stored as HTML; inline images are Cloudinary delivery URLs.
+  | { type: "richtext"; html: string };
 
 export type Layout = {
   title: string;

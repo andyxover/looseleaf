@@ -368,6 +368,14 @@ function BlockView({
           <Markdown text={block.markdown} />
         </section>
       );
+    case "richtext":
+      // Owner-authored rich body from the Tiptap editor.
+      return (
+        <section
+          className="richtext"
+          dangerouslySetInnerHTML={{ __html: block.html }}
+        />
+      );
     case "photo": {
       const photo = getPhoto(photos, block.photoIdx);
       if (!photo) return null;

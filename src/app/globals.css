@@ -43,6 +43,72 @@ html {
   100% { width: 92%; }
 }
 
+/* Rich body (Tiptap "Build it myself" posts) — reading + editing typography. */
+.richtext {
+  font-size: 1.125rem;
+  line-height: 1.85;
+  color: #3f3f46; /* zinc-700 */
+}
+.richtext > * + * { margin-top: 1.2em; }
+.richtext h2 {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: #18181b;
+  margin-top: 1.5em;
+}
+.richtext h3 {
+  font-family: var(--font-serif);
+  font-size: 1.45rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: #18181b;
+  margin-top: 1.3em;
+}
+.richtext a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.richtext ul { list-style: disc; padding-left: 1.4em; }
+.richtext ol { list-style: decimal; padding-left: 1.4em; }
+.richtext li { margin-top: 0.35em; }
+.richtext blockquote {
+  border-left: 3px solid var(--color-accent);
+  padding-left: 1.1em;
+  font-style: italic;
+  color: #52525b;
+}
+.richtext img {
+  border-radius: 0.85rem;
+  margin: 1.75em auto;
+  width: 100%;
+  height: auto;
+}
+.richtext strong { font-weight: 600; color: #18181b; }
+.richtext code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+/* Tiptap placeholder text. */
+.richtext p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #a1a1aa;
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+  .richtext { color: #d4d4d8; }
+  .richtext h2, .richtext h3, .richtext strong { color: #fafafa; }
+  .richtext blockquote { color: #a1a1aa; }
+  .richtext code { background: rgba(255, 255, 255, 0.1); }
+}
+
 /* Subtle ambient grain — gives the page texture without competing with photos. */
 body::before {
   content: "";

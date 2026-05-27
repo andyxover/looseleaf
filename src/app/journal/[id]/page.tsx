@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
 import { EditableJournal } from "@/components/EditableJournal";
+import { RichJournalEditor } from "@/components/RichJournalEditor";
 import { MagazinePageWithFooter } from "@/components/MagazinePage";
 import { LangToggle } from "@/components/LangToggle";
 import { PostEngagement } from "@/components/PostEngagement";
@@ -85,13 +86,21 @@ export default async function JournalPage({
         <LangToggle initial={lang} />
       </nav>
       {editor ? (
-        <EditableJournal
-          key={`${photos.length}-${page.layoutJson.length}`}
-          pageId={id}
-          initialLayout={canonical}
-          photos={photos}
-          initialEntryDate={page.entryDate.toISOString()}
-        />
+        canonical.blocks.some((b) => b.type === "richtext") ? (
+          <RichJournalEditor
+            pageId={id}
+            initialLayout={canonical}
+            initialEntryDate={page.entryDate.toISOString()}
+          />
+        ) : (
+          <EditableJournal
+            key={`${photos.length}-${page.layoutJson.length}`}
+            pageId={id}
+            initialLayout={canonical}
+            photos={photos}
+            initialEntryDate={page.entryDate.toISOString()}
+          />
+        )
       ) : (
         <MagazinePageWithFooter
           layout={readLayout}

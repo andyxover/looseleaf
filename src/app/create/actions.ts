@@ -12,7 +12,7 @@ import { anthropic } from "@/lib/anthropic";
 import { uploadImage } from "@/lib/storage";
 import { isEditor } from "@/lib/owner";
 import { translateLayout } from "@/lib/translate";
-import type { Layout, Block } from "@/lib/layout";
+import type { Layout } from "@/lib/layout";
 
 const MODEL = "claude-sonnet-4-6";
 const MAX_PHOTOS = 100;
@@ -101,10 +101,33 @@ async function fetchAsBase64(url: string): Promise<string> {
   return buf.toString("base64");
 }
 
-// Manual creation: no AI, no API spend. Seed a simple starter layout from the
-// title + uploaded photos and drop the editor straight into the inline editor
-// to compose. Translation is skipped (the author writes their own copy and can
-// translate later); rendering falls back to the canonical layout.
+// Pull the Cloudinary public_ids out of inline <img> tags in the rich body, in
+// document order, de-duplicated. The editor inserts URLs shaped like
+// .../image/upload/<transforms>/<publicId>. public_ids may contain folders.
+function extractCloudinaryPublicIds(html: string): string[] {
+  const re =
+    /res\.cloudinary\.com\/[^/]+\/image\/upload\/[^/"']+\/([^"'\s)]+)/g;
+  const ids: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const id = decodeURIComponent(m[1]);
+    if (!ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Manual creation: no AI, no API spend. Stores the author's rich body (from the
+// Tiptap editor) as a single `richtext` block; inline images become Photo rows
+// (first = cover) so the feed + archive work. Translation skipped.
 export async function createPageManual(
   _prev: CreatePageState,
   formData: FormData,
@@ -112,7 +135,7 @@ export async function createPageManual(
   if (!(await isEditor())) return { error: "Sign in first." };
 
   const title = String(formData.get("title") ?? "").trim();
-  const intro = String(formData.get("summary") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
   const entryDateRaw = String(formData.get("entryDate") ?? "").trim();
   const entryDate = entryDateRaw
     ? new Date(`${entryDateRaw}T12:00:00.000Z`)
@@ -122,38 +145,14 @@ export async function createPageManual(
   }
   if (!title) return { error: "Give your entry a title." };
 
-  const rawPhotoRefs = formData.getAll("photos");
-  const photoRefs: IncomingPhoto[] = [];
-  for (const raw of rawPhotoRefs) {
-    if (typeof raw !== "string") continue;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.publicId === "string") {
-        photoRefs.push({
-          publicId: parsed.publicId,
-          width: Number(parsed.width) || 0,
-          height: Number(parsed.height) || 0,
-        });
-      }
-    } catch {
-      // ignore malformed entries
-    }
-  }
-  if (photoRefs.length > MAX_PHOTOS)
-    return { error: `Limit to ${MAX_PHOTOS} photos per page for now.` };
+  const intro = htmlToPlainText(body).slice(0, 200);
+  const publicIds = extractCloudinaryPublicIds(body).slice(0, MAX_PHOTOS);
 
-  const blocks: Block[] = [];
-  if (photoRefs.length > 0) {
-    blocks.push({ type: "hero", photoIdx: 0, headline: title });
-  }
-  blocks.push({ type: "text", markdown: intro || "Start writing your story here…" });
-  if (photoRefs.length > 1) {
-    blocks.push({
-      type: "gallery",
-      photoIdxs: photoRefs.map((_, i) => i).slice(1),
-    });
-  }
-  const layout: Layout = { title, intro, blocks };
+  const layout: Layout = {
+    title,
+    intro,
+    blocks: [{ type: "richtext", html: body }],
+  };
 
   let pageId: string;
   try {
@@ -164,12 +163,7 @@ export async function createPageManual(
         layoutJson: JSON.stringify(layout),
         entryDate,
         photos: {
-          create: photoRefs.map((s, i) => ({
-            filePath: s.publicId,
-            width: s.width || null,
-            height: s.height || null,
-            order: i,
-          })),
+          create: publicIds.map((pid, i) => ({ filePath: pid, order: i })),
         },
       },
     });
