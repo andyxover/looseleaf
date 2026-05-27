@@ -1,5 +1,7 @@
 "use server";
 
+import { cookies } from "next/headers";
+
 import { prisma } from "@/lib/prisma";
 import { pageToEntry, type FeedEntry } from "@/lib/feed";
 import { getLang, resolveLayoutJson } from "@/lib/lang";
@@ -27,6 +29,18 @@ export async function loadMoreEntries(
     },
   });
 
+  const visitorId = (await cookies()).get("lv_visitor")?.value ?? null;
+  const likedIds = visitorId
+    ? new Set(
+        (
+          await prisma.like.findMany({
+            where: { visitorId, pageId: { in: rows.map((r) => r.id) } },
+            select: { pageId: true },
+          })
+        ).map((l) => l.pageId),
+      )
+    : new Set<string>();
+
   const entries: FeedEntry[] = rows.map((p) =>
     pageToEntry({
       id: p.id,
@@ -37,6 +51,7 @@ export async function loadMoreEntries(
       _photoCount: p._count.photos,
       views: p.views,
       _likeCount: p._count.likes,
+      _liked: likedIds.has(p.id),
     }),
   );
   const nextCursor =

@@ -102,7 +102,7 @@ export function PostEngagement({
   }
 
   return (
-    <section className="mx-auto max-w-3xl px-6 pb-20 print:hidden">
+    <section id="comments" className="mx-auto max-w-3xl px-6 pb-20 print:hidden">
       {/* Like + views bar */}
       <div className="flex items-center gap-5 border-y border-zinc-200 py-4 dark:border-zinc-800">
         <button
@@ -226,6 +226,7 @@ export function PostEngagement({
           className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950"
         />
         <textarea
+          id="comment-input"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={3}

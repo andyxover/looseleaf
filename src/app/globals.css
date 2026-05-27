@@ -36,6 +36,13 @@ html {
   font-family: var(--font-mono);
 }
 
+/* Navigation progress bar — grows fast then crawls toward 92% while loading. */
+@keyframes navbar-grow {
+  0% { width: 0%; }
+  40% { width: 55%; }
+  100% { width: 92%; }
+}
+
 /* Subtle ambient grain — gives the page texture without competing with photos. */
 body::before {
   content: "";

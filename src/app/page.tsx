@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { Plus, LogIn, LogOut } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
@@ -37,6 +38,18 @@ export default async function Home() {
     getLang(),
   ]);
   const showAuthChrome = isSupabaseConfigured();
+  // Which of these entries the current anonymous visitor has already liked.
+  const visitorId = (await cookies()).get("lv_visitor")?.value ?? null;
+  const likedIds = visitorId
+    ? new Set(
+        (
+          await prisma.like.findMany({
+            where: { visitorId, pageId: { in: rows.map((r) => r.id) } },
+            select: { pageId: true },
+          })
+        ).map((l) => l.pageId),
+      )
+    : new Set<string>();
   const initialEntries = rows.map((p) =>
     pageToEntry({
       id: p.id,
@@ -47,6 +60,7 @@ export default async function Home() {
       _photoCount: p._count.photos,
       views: p.views,
       _likeCount: p._count.likes,
+      _liked: likedIds.has(p.id),
     }),
   );
   const initialCursor =

@@ -3,6 +3,7 @@ import { Geist, Fraunces, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
 import { ScrollProgress } from "@/components/ScrollProgress";
+import { NavProgress } from "@/components/NavProgress";
 import { CursorGlow } from "@/components/decor/CursorGlow";
 import { FloatingActions } from "@/components/FloatingActions";
 
@@ -39,6 +40,7 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-paper text-zinc-900 selection:bg-accent selection:text-white dark:bg-paper-dark dark:text-zinc-100 dark:selection:bg-accent dark:selection:text-white">
         <ScrollProgress />
+        <NavProgress />
         <CursorGlow />
         {children}
         <FloatingActions />

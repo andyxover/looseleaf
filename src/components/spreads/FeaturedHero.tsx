@@ -12,7 +12,7 @@ import {
 
 import type { FeedEntry } from "@/lib/feed";
 import { PhotoImage } from "@/components/PhotoImage";
-import { EntryStats } from "@/components/spreads/EntryStats";
+import { FeedActions } from "@/components/spreads/FeedActions";
 
 export function FeaturedHero({ entry }: { entry: FeedEntry }) {
   const reduced = useReducedMotion();
@@ -83,10 +83,13 @@ export function FeaturedHero({ entry }: { entry: FeedEntry }) {
                 {entry.intro}
               </p>
             )}
-            <EntryStats
+            <FeedActions
+              pageId={entry.id}
+              title={entry.title}
               likeCount={entry.likeCount}
+              liked={entry.liked}
               views={entry.views}
-              className="mt-5 text-white/70"
+              className="pointer-events-auto relative z-10 mt-5 text-white/80"
             />
           </div>
         </motion.div>

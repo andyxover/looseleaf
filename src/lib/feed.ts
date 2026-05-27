@@ -11,6 +11,7 @@ export type FeedEntry = {
   photoCount: number;
   views: number;
   likeCount: number;
+  liked: boolean;
   quote?: { text: string; attribution?: string } | null;
 };
 
@@ -40,6 +41,7 @@ type RawPage = {
   _photoCount: number;
   views: number;
   _likeCount: number;
+  _liked: boolean;
 };
 
 export function pageToEntry(p: RawPage): FeedEntry {
@@ -76,6 +78,7 @@ export function pageToEntry(p: RawPage): FeedEntry {
     photoCount: p._photoCount,
     views: p.views,
     likeCount: p._likeCount,
+    liked: p._liked,
     quote,
   };
 }

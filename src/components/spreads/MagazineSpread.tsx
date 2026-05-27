@@ -6,7 +6,7 @@ import { motion, useReducedMotion } from "motion/react";
 import type { FeedEntry } from "@/lib/feed";
 import { PhotoImage } from "@/components/PhotoImage";
 import { MaskReveal } from "@/components/Reveal";
-import { EntryStats } from "@/components/spreads/EntryStats";
+import { FeedActions } from "@/components/spreads/FeedActions";
 
 export function MagazineSpread({ entries }: { entries: FeedEntry[] }) {
   const reduced = useReducedMotion();
@@ -59,10 +59,13 @@ export function MagazineSpread({ entries }: { entries: FeedEntry[] }) {
                       ·
                     </span>
                     <span className="tracking-[0.25em] text-zinc-400">{dateLabel}</span>
-                    <EntryStats
+                    <FeedActions
+                      pageId={entry.id}
+                      title={entry.title}
                       likeCount={entry.likeCount}
+                      liked={entry.liked}
                       views={entry.views}
-                      className="text-zinc-400"
+                      className="relative z-10 text-zinc-400"
                     />
                   </div>
                   <h3 className="mt-6 font-serif text-3xl leading-[1.05] tracking-tight sm:text-4xl lg:text-5xl">

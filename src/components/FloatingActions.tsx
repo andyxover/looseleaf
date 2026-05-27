@@ -9,7 +9,7 @@ import {
   useTransform,
   useReducedMotion,
 } from "motion/react";
-import { ArrowUp, Home, Heart, Share2, Check } from "lucide-react";
+import { ArrowUp, Home, Heart, Share2, Check, MessageCircle } from "lucide-react";
 
 import { getLikeState, toggleLike } from "@/app/engagement-actions";
 
@@ -67,6 +67,18 @@ export function FloatingActions() {
     }
   }
 
+  function onComment() {
+    document
+      .getElementById("comments")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Focus after the smooth scroll settles; preventScroll so it doesn't re-jump.
+    setTimeout(() => {
+      (document.getElementById("comment-input") as HTMLTextAreaElement | null)?.focus({
+        preventScroll: true,
+      });
+    }, 500);
+  }
+
   async function onShare() {
     const url = window.location.href;
     if (typeof navigator !== "undefined" && navigator.share) {
@@ -96,6 +108,18 @@ export function FloatingActions() {
     >
       {journalId && (
         <>
+          <motion.button
+            type="button"
+            onClick={onComment}
+            whileHover={reduced ? undefined : { scale: 1.08 }}
+            whileTap={reduced ? undefined : { scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 320, damping: 18 }}
+            className={whiteCircle}
+            aria-label="Jump to comments"
+            title="Comments"
+          >
+            <MessageCircle className="size-5" />
+          </motion.button>
           <motion.button
             type="button"
             onClick={onLike}
