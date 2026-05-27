@@ -21,6 +21,12 @@ function fmt(iso: string): string {
     .toUpperCase();
 }
 
+function fmtDay(iso: string): string {
+  return new Date(iso)
+    .toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    .toUpperCase();
+}
+
 // A justified, virtualized photo-grid of every entry with a live drag-scrubber
 // on the right. Uniform square tiles → row heights are known without
 // rendering, so scroll position ↔ date is exact and only on-screen rows mount.
@@ -115,7 +121,7 @@ export function TimelineGrid({ entries }: { entries: TimelineEntry[] }) {
               style={{ position: "absolute", top, left, width: tile, height: tile }}
               className="group block overflow-hidden rounded-md bg-zinc-200 dark:bg-zinc-800"
             >
-              {e.cover ? (
+              {e.cover && (
                 <PhotoImage
                   src={e.cover}
                   alt={e.title}
@@ -123,13 +129,13 @@ export function TimelineGrid({ entries }: { entries: TimelineEntry[] }) {
                   sizes="240px"
                   className="object-cover transition duration-500 group-hover:scale-105"
                 />
-              ) : (
-                <span className="flex h-full items-center justify-center p-2 text-center font-serif text-sm text-zinc-500">
-                  {e.title}
-                </span>
               )}
-              <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 transition group-hover:opacity-100">
-                <span className="line-clamp-2 text-xs font-medium text-white">
+              {/* always-visible caption: date + topic */}
+              <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent px-2.5 pb-2 pt-7">
+                <span className="block font-mono text-[9px] uppercase tracking-[0.15em] text-white/65">
+                  {fmtDay(e.date)}
+                </span>
+                <span className="mt-0.5 line-clamp-2 text-[13px] font-medium leading-snug text-white">
                   {e.title}
                 </span>
               </span>
