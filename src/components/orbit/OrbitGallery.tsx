@@ -25,10 +25,10 @@ type OrbitGalleryProps = {
 };
 
 const RADIUS = 14; // sphere radius the cell lattice sits on
-const COLS = 18; // cells per full 360° ring — small angles keep cells near-flat
-const MAX_ROWS = 4;
-const CELL_PHI = (Math.PI * 2) / COLS; // azimuthal width of a cell (20°)
-const CELL_THETA = 0.25; // polar height of a cell — landscape ratio (~1.4)
+const COLS = 14; // cells per full 360° ring
+const ROWS = 5; // latitude bands — enough vertical sweep to read as a dome
+const CELL_PHI = (Math.PI * 2) / COLS; // azimuthal width of a cell (~26°)
+const CELL_THETA = 0.34; // polar height of a cell (~19°)
 const PHOTO_FRACTION = 0.58; // photo patch size relative to its cell
 const DRAG_EASE = 0.075; // lerp factor toward target rotation per frame
 const MOMENTUM_DECAY = 0.94;
@@ -53,7 +53,7 @@ function dateLabel(iso: string): string {
 // date top-left, title top-right, tag chips bottom-left, year bottom-right.
 function makeCellTexture(entry: FeedEntry): THREE.CanvasTexture {
   const W = 1024;
-  const H = 731; // matches the cell patch's arc aspect (~1.4)
+  const H = 776; // matches the cell patch's arc aspect (~1.32)
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -180,7 +180,7 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
     scene.fog = new THREE.FogExp2(0x0c0a09, 0.02); // panels dim toward the edges
 
     const camera = new THREE.PerspectiveCamera(
-      55, // modest FOV — wide angles fisheye the lattice into a barrel
+      66, // tall FOV so the rows above and below visibly arc away — the dome
       mount.clientWidth / mount.clientHeight,
       0.1,
       80,
@@ -195,9 +195,9 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
     renderer.domElement.style.cursor = "grab";
 
     // --- The cell lattice ---------------------------------------------------
-    // Fill every cell of the grid; if there are fewer entries than cells,
-    // cycle from the start so the wall has no holes.
-    const rows = Math.min(MAX_ROWS, Math.max(1, Math.ceil(withCovers.length / COLS)));
+    // Always build the full dome; if there are fewer entries than cells,
+    // cycle from the start so the sphere has no holes.
+    const rows = ROWS;
     const cellCount = rows * COLS;
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin("anonymous");
@@ -260,7 +260,7 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
 
       gsap.to(cellMat, { opacity: 1, duration: 0.8, ease: "power2.out", delay: (i % COLS) * 0.04 });
 
-      loader.load(coverUrl(entry.cover!, 640, 460), (tex) => {
+      loader.load(coverUrl(entry.cover!, 640, 485), (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = 8;
         tex.wrapS = THREE.RepeatWrapping;
