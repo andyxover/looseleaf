@@ -128,12 +128,16 @@ export function buildSpreads(
       spreads.push({ type: "list", entries: g.entries });
     }
 
-    // Inject a pull-quote after every other group, drawn from a random entry
-    // with a quote in that group.
+    // Inject a pull-quote after every other group, drawn from an entry with a
+    // quote in that group. The pick must be deterministic — buildSpreads runs
+    // on both server and client, and a Math.random() choice hydrates to a
+    // different entry than was rendered. Hash the month key instead so the
+    // pick is stable per group but still varies across months.
     if (idx % 2 === 1) {
       const withQuote = g.entries.filter((e) => e.quote && e.quote.text.length > 0);
       if (withQuote.length > 0) {
-        const pick = withQuote[Math.floor(Math.random() * withQuote.length)];
+        const seed = [...g.key].reduce((a, c) => a + c.charCodeAt(0), 0);
+        const pick = withQuote[seed % withQuote.length];
         if (pick.quote) {
           spreads.push({ type: "pullQuote", entry: pick, quote: pick.quote });
         }
