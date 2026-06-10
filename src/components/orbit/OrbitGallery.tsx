@@ -1,12 +1,16 @@
 "use client";
 
 // Immersive "orbit" view: the visitor stands at the center of a sphere whose
-// inner surface is tiled with entry cards. Drag (or wheel) to look around with
-// inertial easing; click a card to fly into its journal page.
+// inner surface is a contiguous grid of entry cells — thin hairline borders,
+// metadata in the corners, the photo floating in the middle of each cell.
+// Drag (or wheel) to look around with inertial easing. Cells sit dimmed until
+// hovered, when they light up. Clicking flies the camera into the cell and
+// hands off to a DOM clone of the photo that expands to fill the screen while
+// the journal route loads beneath it — one continuous, directional move.
 //
-// Three.js renders the sphere; gsap drives the fly-in transition. All motion
-// runs through a damped-lerp loop so dragging has the same eased, weighty feel
-// as the Lenis scroll on the classic view.
+// Three.js renders the wall; gsap drives every transition. All rotation runs
+// through a damped-lerp loop so dragging has the same eased, weighty feel as
+// the Lenis scroll on the classic view.
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -20,22 +24,23 @@ type OrbitGalleryProps = {
   onExit?: () => void;
 };
 
-const RADIUS = 14; // sphere radius the cards sit on
-const CARD_W = 3.6;
-const CARD_H = 2.5;
-const ROWS = 3; // latitude bands, like a gallery wrapped around you
-const ROW_PHI = [0.42, 0, -0.42]; // band elevations (radians above/below equator)
+const RADIUS = 14; // sphere radius the cell lattice sits on
+const COLS = 12; // cells per full 360° ring
+const MAX_ROWS = 4;
+const CELL_PHI = (Math.PI * 2) / COLS; // azimuthal width of a cell
+const CELL_THETA = 0.4; // polar height of a cell (radians)
+const PHOTO_FRACTION = 0.58; // photo patch size relative to its cell
 const DRAG_EASE = 0.075; // lerp factor toward target rotation per frame
 const MOMENTUM_DECAY = 0.94;
-const PITCH_LIMIT = 0.75; // don't let the visitor stare at the poles
 const CLICK_SLOP_PX = 7; // pointer travel below this counts as a click
+const DIM = 0.62; // resting photo brightness; hover lifts to 1
 
 // Resolve a cover (Cloudinary public_id or local "/uploads/..." path) to a
 // loadable URL. Cloudinary serves CORS-friendly, auto-format crops.
-function coverUrl(cover: string): string {
+function coverUrl(cover: string, w: number, h: number): string {
   if (cover.startsWith("/")) return cover;
   const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  return `https://res.cloudinary.com/${cloud}/image/upload/c_fill,w_640,h_440,g_auto,q_auto,f_auto/${cover}`;
+  return `https://res.cloudinary.com/${cloud}/image/upload/c_fill,w_${w},h_${h},g_auto,q_auto,f_auto/${cover}`;
 }
 
 function dateLabel(iso: string): string {
@@ -44,34 +49,102 @@ function dateLabel(iso: string): string {
     .toUpperCase();
 }
 
-// Tiny mono caption drawn onto a canvas texture, shown beneath each card.
-function makeCaptionTexture(title: string, date: string): THREE.CanvasTexture {
-  const w = 640;
-  const h = 56;
+// Bake one cell's chrome — hairline border plus corner metadata, phantom-style:
+// date top-left, title top-right, tag chips bottom-left, year bottom-right.
+function makeCellTexture(entry: FeedEntry): THREE.CanvasTexture {
+  const W = 1024;
+  const H = 784; // matches the cell patch's arc aspect (~1.31)
   const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
+  canvas.width = W;
+  canvas.height = H;
   const ctx = canvas.getContext("2d")!;
-  ctx.clearRect(0, 0, w, h);
-  ctx.font = "500 22px 'JetBrains Mono', ui-monospace, monospace";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "rgba(246, 242, 234, 0.92)"; // paper, on the dark backdrop
-  let t = title.toUpperCase();
-  while (t.length > 3 && ctx.measureText(t + "…").width > w - 190) t = t.slice(0, -1);
-  if (t !== title.toUpperCase()) t += "…";
-  ctx.fillText(t, 4, h / 2);
-  ctx.fillStyle = "rgba(246, 242, 234, 0.45)";
+  const mono = "500 19px 'JetBrains Mono', ui-monospace, monospace";
+  const ink = "rgba(246, 242, 234, 0.85)";
+  const faint = "rgba(246, 242, 234, 0.4)";
+  const pad = 26;
+
+  // Cell ground — a hair lighter than the room, so the lattice reads as panels.
+  ctx.fillStyle = "#100e0d";
+  ctx.fillRect(0, 0, W, H);
+  // Hairline border = the shared grid lines of the lattice.
+  ctx.strokeStyle = "rgba(246, 242, 234, 0.13)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, W - 2, H - 2);
+
+  ctx.font = mono;
+  ctx.textBaseline = "top";
+
+  // Top-left: entry date (the "client" slot in the reference layout).
+  ctx.fillStyle = faint;
+  const date = dateLabel(entry.date);
+  ctx.fillText(date, pad, pad);
+
+  // Top-right: title, truncated to the space the date leaves free.
+  ctx.fillStyle = ink;
+  const maxTitle = W - pad * 3 - ctx.measureText(date).width;
+  let t = entry.title.toUpperCase();
+  while (t.length > 3 && ctx.measureText(t + "…").width > maxTitle) t = t.slice(0, -1);
+  if (t !== entry.title.toUpperCase()) t += "…";
   ctx.textAlign = "right";
-  ctx.fillText(date, w - 4, h / 2);
+  ctx.fillText(t, W - pad, pad);
+  ctx.textAlign = "left";
+
+  // Bottom-left: tag chips.
+  const chips = ["JOURNAL", `${entry.photoCount} ${entry.photoCount === 1 ? "PHOTO" : "PHOTOS"}`];
+  const chipH = 44;
+  const chipY = H - pad - chipH;
+  let x = pad;
+  ctx.textBaseline = "middle";
+  for (const chip of chips) {
+    const tw = ctx.measureText(chip).width;
+    const cw = tw + 36;
+    ctx.strokeStyle = "rgba(246, 242, 234, 0.25)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(x, chipY, cw, chipH, chipH / 2);
+    ctx.stroke();
+    ctx.fillStyle = faint;
+    ctx.fillText(chip, x + 18, chipY + chipH / 2 + 1);
+    x += cw + 12;
+  }
+
+  // Bottom-right: year.
+  ctx.fillStyle = faint;
+  ctx.textAlign = "right";
+  ctx.fillText(entry.date.slice(0, 4), W - pad, chipY + chipH / 2 + 1);
+
   const tex = new THREE.CanvasTexture(canvas);
-  tex.anisotropy = 4;
+  tex.colorSpace = THREE.SRGBColorSpace; // canvas pixels are sRGB, not linear
+  tex.anisotropy = 8;
+  // Viewed from inside the sphere the patch is seen from its back face, which
+  // mirrors the texture — flip U so the type reads correctly.
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.repeat.x = -1;
   return tex;
+}
+
+// A curved rectangular patch of the sphere's inner surface.
+function patchGeometry(
+  radius: number,
+  phiCenter: number,
+  phiLength: number,
+  polarCenter: number,
+  thetaLength: number,
+): THREE.SphereGeometry {
+  return new THREE.SphereGeometry(
+    radius,
+    10,
+    8,
+    phiCenter - phiLength / 2,
+    phiLength,
+    polarCenter - thetaLength / 2,
+    thetaLength,
+  );
 }
 
 export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
   const router = useRouter();
   const mountRef = useRef<HTMLDivElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState<FeedEntry | null>(null);
   const [hintDismissed, setHintDismissed] = useState(false);
   const hoveredIdRef = useRef<string | null>(null);
@@ -90,15 +163,21 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
-    const cards = entries.filter((e) => e.cover);
-    if (cards.length === 0) return;
+    const withCovers = entries.filter((e) => e.cover);
+    if (withCovers.length === 0) return;
 
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Drive gsap from our render loop instead of its own ticker, so tween
+    // updates and frames are always in lockstep — gsap's internal ticker
+    // stalls in hidden/headless tabs while ours still pumps on capture.
+    gsap.ticker.remove(gsap.updateRoot);
+    gsap.ticker.lagSmoothing(0);
 
     // --- Scene scaffolding -------------------------------------------------
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#0c0a09"); // paper-dark
-    scene.fog = new THREE.FogExp2(0x0c0a09, 0.028); // cards dim toward the edges
+    scene.fog = new THREE.FogExp2(0x0c0a09, 0.02); // panels dim toward the edges
 
     const camera = new THREE.PerspectiveCamera(
       62,
@@ -115,80 +194,92 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
     renderer.domElement.style.touchAction = "none";
     renderer.domElement.style.cursor = "grab";
 
-    // --- Cards on the inner sphere ----------------------------------------
+    // --- The cell lattice ---------------------------------------------------
+    // Fill every cell of the grid; if there are fewer entries than cells,
+    // cycle from the start so the wall has no holes.
+    const rows = Math.min(MAX_ROWS, Math.max(1, Math.ceil(withCovers.length / COLS)));
+    const cellCount = rows * COLS;
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin("anonymous");
 
-    const cardGroup = new THREE.Group();
-    scene.add(cardGroup);
-    const cardMeshes: THREE.Mesh[] = [];
-    const cardGeo = new THREE.PlaneGeometry(CARD_W, CARD_H);
-    const captionGeo = new THREE.PlaneGeometry(CARD_W, (CARD_W * 56) / 640);
-    const disposables: { dispose(): void }[] = [cardGeo, captionGeo];
+    const disposables: { dispose(): void }[] = [];
+    type Cell = {
+      entry: FeedEntry;
+      cellMesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
+      photoMesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
+      phiCenter: number;
+      polarCenter: number;
+    };
+    const cells: Cell[] = [];
+    const pickables: THREE.Mesh[] = [];
 
-    const perRow = Math.ceil(cards.length / ROWS);
-    cards.forEach((entry, i) => {
-      const row = Math.floor(i / perRow);
-      const col = i % perRow;
-      const inRow = Math.min(perRow, cards.length - row * perRow);
-      // Even ring spacing with a touch of jitter, alternate rows offset half a
-      // step so the grid reads as a brick-like wall rather than columns.
-      const theta =
-        (col / inRow) * Math.PI * 2 +
-        (row % 2 ? Math.PI / inRow : 0) +
-        (((i * 37) % 10) - 5) * 0.006;
-      const phi = ROW_PHI[row % ROWS] + (((i * 53) % 10) - 5) * 0.008;
-      const r = RADIUS + (((i * 29) % 10) - 5) * 0.06;
+    for (let i = 0; i < cellCount; i++) {
+      const entry = withCovers[i % withCovers.length];
+      const row = Math.floor(i / COLS);
+      const col = i % COLS;
+      const phiCenter = col * CELL_PHI;
+      // Center the rows on the equator (polar angle π/2).
+      const polarCenter = Math.PI / 2 + (row - (rows - 1) / 2) * CELL_THETA;
 
-      const pos = new THREE.Vector3(
-        r * Math.cos(phi) * Math.sin(theta),
-        r * Math.sin(phi),
-        r * Math.cos(phi) * Math.cos(theta),
+      const cellGeo = patchGeometry(RADIUS, phiCenter, CELL_PHI, polarCenter, CELL_THETA);
+      const cellTex = makeCellTexture(entry);
+      const cellMat = new THREE.MeshBasicMaterial({
+        map: cellTex,
+        side: THREE.BackSide,
+        transparent: true,
+        opacity: 0,
+        fog: true,
+      });
+      const cellMesh = new THREE.Mesh(cellGeo, cellMat);
+      disposables.push(cellGeo, cellTex, cellMat);
+
+      // The photo floats in the middle of the cell, a hair inside the lattice.
+      const photoGeo = patchGeometry(
+        RADIUS * 0.985,
+        phiCenter,
+        CELL_PHI * PHOTO_FRACTION,
+        polarCenter,
+        CELL_THETA * PHOTO_FRACTION,
       );
-
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0x1c1917, // placeholder slab until the photo arrives
+      const photoMat = new THREE.MeshBasicMaterial({
+        color: 0x181614, // placeholder slab until the photo arrives
+        side: THREE.BackSide,
         transparent: true,
         opacity: 0,
         fog: true,
       });
-      disposables.push(mat);
-      const mesh = new THREE.Mesh(cardGeo, mat);
-      mesh.position.copy(pos);
-      mesh.lookAt(0, 0, 0);
-      mesh.userData = { entry, baseScale: 1 };
-      cardGroup.add(mesh);
-      cardMeshes.push(mesh);
+      const photoMesh = new THREE.Mesh(photoGeo, photoMat);
+      disposables.push(photoGeo, photoMat);
 
-      // Caption strip below the photo.
-      const capTex = makeCaptionTexture(entry.title, dateLabel(entry.date));
-      const capMat = new THREE.MeshBasicMaterial({
-        map: capTex,
-        transparent: true,
-        opacity: 0,
-        fog: true,
-      });
-      disposables.push(capTex, capMat);
-      const cap = new THREE.Mesh(captionGeo, capMat);
-      // Place in the card's local space: lookAt already oriented the card, so
-      // attach the caption as a child sitting just below.
-      cap.position.set(0, -(CARD_H / 2 + 0.32), 0);
-      mesh.add(cap);
+      const cell: Cell = { entry, cellMesh, photoMesh, phiCenter, polarCenter };
+      cellMesh.userData.cell = cell;
+      photoMesh.userData.cell = cell;
+      scene.add(cellMesh, photoMesh);
+      pickables.push(photoMesh, cellMesh);
+      cells.push(cell);
 
-      // Photos pop in as they decode — staggered by distance from the start.
-      loader.load(coverUrl(entry.cover!), (tex) => {
+      gsap.to(cellMat, { opacity: 1, duration: 0.8, ease: "power2.out", delay: (i % COLS) * 0.04 });
+
+      loader.load(coverUrl(entry.cover!, 640, 490), (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = 8;
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.repeat.x = -1; // same back-face mirror fix as the cell chrome
         disposables.push(tex);
-        mat.map = tex;
-        mat.color.set(0xffffff);
-        mat.needsUpdate = true;
-        gsap.to(mat, { opacity: 1, duration: 0.9, ease: "power2.out", delay: (i % 12) * 0.05 });
-        gsap.to(capMat, { opacity: 1, duration: 0.9, ease: "power2.out", delay: (i % 12) * 0.05 + 0.15 });
+        photoMat.map = tex;
+        photoMat.color.setScalar(DIM); // resting state is dimmed; hover lights up
+        photoMat.needsUpdate = true;
+        gsap.to(photoMat, {
+          opacity: 1,
+          duration: 0.8,
+          ease: "power2.out",
+          delay: (i % COLS) * 0.04 + 0.1,
+        });
       });
-    });
+    }
 
     // --- Rotation state: damped lerp toward a target, momentum on release --
+    const pitchLimit = (rows / 2) * CELL_THETA + 0.12;
     const rot = { yaw: 0, pitch: 0 };
     const target = { yaw: 0, pitch: 0 };
     const velocity = { yaw: 0, pitch: 0 };
@@ -208,45 +299,136 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
     const raycaster = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
 
-    function pick(clientX: number, clientY: number): THREE.Mesh | null {
+    function pick(clientX: number, clientY: number): Cell | null {
       const rect = renderer.domElement.getBoundingClientRect();
       ndc.set(
         ((clientX - rect.left) / rect.width) * 2 - 1,
         -((clientY - rect.top) / rect.height) * 2 + 1,
       );
       raycaster.setFromCamera(ndc, camera);
-      const hit = raycaster.intersectObjects(cardMeshes, false)[0];
-      return (hit?.object as THREE.Mesh) ?? null;
+      const hit = raycaster.intersectObjects(pickables, false)[0];
+      return (hit?.object.userData.cell as Cell) ?? null;
     }
 
-    function setHover(mesh: THREE.Mesh | null) {
-      const id = mesh ? (mesh.userData.entry as FeedEntry).id : null;
+    function setHover(cell: Cell | null) {
+      const id = cell ? cell.entry.id : null;
       if (id === hoveredIdRef.current) return;
       hoveredIdRef.current = id;
-      for (const m of cardMeshes) {
-        const isTarget = m === mesh;
-        gsap.to(m.scale, {
-          x: isTarget ? 1.09 : 1,
-          y: isTarget ? 1.09 : 1,
-          z: 1,
+      // Light the hovered cell up; everything else settles back to rest.
+      for (const c of cells) {
+        const on = c === cell || (cell !== null && c.entry.id === cell.entry.id);
+        if (c.photoMesh.material.map) {
+          const tint = { v: c.photoMesh.material.color.r };
+          gsap.to(tint, {
+            v: on ? 1 : DIM,
+            duration: 0.4,
+            ease: "power2.out",
+            onUpdate: () => c.photoMesh.material.color.setScalar(tint.v),
+          });
+        }
+        // Brightening a >1 multiply lifts the baked border + type.
+        const cellTint = { v: c.cellMesh.material.color.r };
+        gsap.to(cellTint, {
+          v: on ? 1.9 : 1,
+          duration: 0.4,
+          ease: "power2.out",
+          onUpdate: () => c.cellMesh.material.color.setScalar(cellTint.v),
+        });
+        // Scaling toward the origin pulls the photo a touch closer — a lift.
+        gsap.to(c.photoMesh.scale, {
+          x: on ? 0.965 : 1,
+          y: on ? 0.965 : 1,
+          z: on ? 0.965 : 1,
           duration: 0.45,
           ease: "power3.out",
         });
       }
-      renderer.domElement.style.cursor = mesh ? "pointer" : dragging ? "grabbing" : "grab";
-      const entry = mesh ? (mesh.userData.entry as FeedEntry) : null;
-      setHovered(entry);
-      if (entry) router.prefetch(`/journal/${entry.id}`);
+      renderer.domElement.style.cursor = cell ? "pointer" : dragging ? "grabbing" : "grab";
+      setHovered(cell ? cell.entry : null);
+      if (cell) {
+        router.prefetch(`/journal/${cell.entry.id}`);
+        // Warm the full-size image the handoff overlay will use.
+        new Image().src = coverUrl(cell.entry.cover!, 1600, 1200);
+      }
     }
 
-    // --- Fly into a card, then navigate ------------------------------------
-    function departTo(mesh: THREE.Mesh) {
+    // Project a mesh's bounding box to a screen-space rect (CSS pixels).
+    function screenRect(mesh: THREE.Mesh): { x: number; y: number; w: number; h: number } {
+      mesh.geometry.computeBoundingBox();
+      const bb = mesh.geometry.boundingBox!;
+      const pts = [
+        new THREE.Vector3(bb.min.x, bb.min.y, bb.min.z),
+        new THREE.Vector3(bb.min.x, bb.min.y, bb.max.z),
+        new THREE.Vector3(bb.min.x, bb.max.y, bb.min.z),
+        new THREE.Vector3(bb.min.x, bb.max.y, bb.max.z),
+        new THREE.Vector3(bb.max.x, bb.min.y, bb.min.z),
+        new THREE.Vector3(bb.max.x, bb.min.y, bb.max.z),
+        new THREE.Vector3(bb.max.x, bb.max.y, bb.min.z),
+        new THREE.Vector3(bb.max.x, bb.max.y, bb.max.z),
+      ];
+      const w = mount!.clientWidth;
+      const h = mount!.clientHeight;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of pts) {
+        mesh.localToWorld(p).project(camera);
+        const sx = ((p.x + 1) / 2) * w;
+        const sy = ((1 - p.y) / 2) * h;
+        minX = Math.min(minX, sx);
+        minY = Math.min(minY, sy);
+        maxX = Math.max(maxX, sx);
+        maxY = Math.max(maxY, sy);
+      }
+      return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    }
+
+    // DOM handoff: a clone of the photo, appended straight to document.body so
+    // it survives the route change, expands from the card's projected rect to
+    // fullscreen, then fades to reveal the journal page underneath.
+    function spawnHandoff(cell: Cell) {
+      const rect = screenRect(cell.photoMesh);
+      const wrap = document.createElement("div");
+      wrap.style.cssText = "position:fixed;inset:0;z-index:9999;pointer-events:none;";
+      const scrim = document.createElement("div");
+      scrim.style.cssText = "position:absolute;inset:0;background:#0c0a09;opacity:0;";
+      const img = document.createElement("img");
+      img.src = coverUrl(cell.entry.cover!, 1600, 1200);
+      img.alt = "";
+      img.style.cssText = `position:absolute;left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px;object-fit:cover;`;
+      wrap.append(scrim, img);
+      document.body.appendChild(wrap);
+
+      gsap.to(scrim, { opacity: 1, duration: 0.7, ease: "power2.inOut" });
+      // The clone rides the same easing as the camera dolly behind it, so the
+      // DOM and WebGL motion read as one continuous move into the page.
+      gsap.to(img, {
+        left: 0,
+        top: 0,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        duration: 1.05,
+        ease: "power3.inOut",
+      });
+      // Hold over the incoming page for a beat, then dissolve into it. This
+      // closure outlives the component — the wall unmounts mid-handoff.
+      gsap.to(wrap, {
+        opacity: 0,
+        duration: 0.7,
+        delay: 1.7,
+        ease: "power2.inOut",
+        onComplete: () => wrap.remove(),
+      });
+    }
+
+    // --- Fly into a cell, hand off, navigate --------------------------------
+    function departTo(cell: Cell) {
       if (departingRef.current) return;
       departingRef.current = true;
-      const entry = mesh.userData.entry as FeedEntry;
-      const dir = mesh.position.clone().normalize();
+      setHovered(null);
+      const dir = new THREE.Vector3();
+      cell.photoMesh.geometry.computeBoundingBox();
+      cell.photoMesh.geometry.boundingBox!.getCenter(dir).normalize();
 
-      // Yaw/pitch that point the camera straight at the card (YXZ camera at
+      // Yaw/pitch that point the camera straight at the cell (YXZ camera at
       // origin faces (-sin yaw, sin pitch, -cos yaw)), unwrapped to the
       // nearest turn so the camera takes the short way around.
       let aimYaw = Math.atan2(-dir.x, -dir.z);
@@ -255,15 +437,29 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
 
       velocity.yaw = 0;
       velocity.pitch = 0;
-      const dest = dir.multiplyScalar(RADIUS - 4.2);
-      const tl = gsap.timeline({
-        onComplete: () => router.push(`/journal/${entry.id}`),
-      });
-      tl.to(rot, { yaw: aimYaw, pitch: aimPitch, duration: 0.7, ease: "power3.inOut" }, 0)
-        .to(target, { yaw: aimYaw, pitch: aimPitch, duration: 0.7, ease: "power3.inOut" }, 0)
-        .to(camera.position, { x: dest.x, y: dest.y, z: dest.z, duration: 0.95, ease: "power3.in" }, 0.1)
-        .to(camera, { fov: 44, duration: 0.95, ease: "power3.in", onUpdate: () => camera.updateProjectionMatrix() }, 0.1)
-        .to(overlayRef.current, { opacity: 1, duration: 0.45, ease: "power2.in" }, 0.62);
+
+      // Spawn the DOM clone right away, while every corner of the card still
+      // projects cleanly — it owns the visible move from here, expanding from
+      // the card's exact screen position to fullscreen.
+      spawnHandoff(cell);
+
+      if (prefersReduced) {
+        gsap.delayedCall(0.55, () => router.push(`/journal/${cell.entry.id}`));
+        return;
+      }
+
+      // The camera keeps flying behind the clone so the first beats of the
+      // move (before the clone covers the frame) stay directional.
+      const dest = dir.clone().multiplyScalar(RADIUS * 0.985 - 2.9);
+      const tl = gsap.timeline();
+      tl.to(rot, { yaw: aimYaw, pitch: aimPitch, duration: 0.65, ease: "power3.inOut" }, 0)
+        .to(target, { yaw: aimYaw, pitch: aimPitch, duration: 0.65, ease: "power3.inOut" }, 0)
+        .to(
+          camera.position,
+          { x: dest.x, y: dest.y, z: dest.z, duration: 1.0, ease: "power3.inOut" },
+          0.05,
+        )
+        .call(() => router.push(`/journal/${cell.entry.id}`), [], 1.1);
     }
 
     // --- Pointer + wheel ----------------------------------------------------
@@ -278,7 +474,11 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
       lastY = downY = e.clientY;
       velocity.yaw = 0;
       velocity.pitch = 0;
-      el.setPointerCapture(e.pointerId);
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        // synthetic events have no active pointer to capture
+      }
       el.style.cursor = "grabbing";
     }
 
@@ -289,12 +489,12 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
         const dy = e.clientY - lastY;
         lastX = e.clientX;
         lastY = e.clientY;
-        // Inside a sphere, dragging right should pull the world right — i.e.
-        // yaw the camera left — which matches "grab the wall and drag it".
+        // Inside a sphere, dragging right pulls the wall right — i.e. yaws the
+        // camera left — which matches "grab the wall and drag it".
         const k = 0.0028;
         target.yaw += dx * k;
         target.pitch += dy * k;
-        target.pitch = THREE.MathUtils.clamp(target.pitch, -PITCH_LIMIT, PITCH_LIMIT);
+        target.pitch = THREE.MathUtils.clamp(target.pitch, -pitchLimit, pitchLimit);
         velocity.yaw = dx * k;
         velocity.pitch = dy * k;
       } else {
@@ -308,8 +508,8 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
       el.style.cursor = "grab";
       const travel = Math.hypot(e.clientX - downX, e.clientY - downY);
       if (travel < CLICK_SLOP_PX && !departingRef.current) {
-        const mesh = pick(e.clientX, e.clientY);
-        if (mesh) departTo(mesh);
+        const cell = pick(e.clientX, e.clientY);
+        if (cell) departTo(cell);
       }
     }
 
@@ -321,6 +521,12 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
       // Wheel spins the gallery horizontally — vertical scroll is the natural
       // gesture, so map it onto yaw; shift/trackpad horizontal adds too.
       target.yaw += (e.deltaY + e.deltaX) * 0.00045;
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      // Live inspection hook for debugging the wall from the console.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__orbitDebug = { scene, camera, cells, renderer, gsap };
     }
 
     el.addEventListener("pointerdown", onPointerDown);
@@ -345,6 +551,7 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
     let rafId = 0;
     const tick = () => {
       rafId = requestAnimationFrame(tick);
+      gsap.updateRoot(performance.now() / 1000);
 
       if (!dragging && !departingRef.current) {
         // Momentum: keep pushing the target with decaying release velocity.
@@ -352,8 +559,8 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
           target.yaw += velocity.yaw;
           target.pitch = THREE.MathUtils.clamp(
             target.pitch + velocity.pitch,
-            -PITCH_LIMIT,
-            PITCH_LIMIT,
+            -pitchLimit,
+            pitchLimit,
           );
           velocity.yaw *= MOMENTUM_DECAY;
           velocity.pitch *= MOMENTUM_DECAY;
@@ -382,7 +589,11 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
       el.removeEventListener("pointerup", onPointerUp);
       el.removeEventListener("pointercancel", onPointerUp);
       el.removeEventListener("wheel", onWheel);
-      gsap.killTweensOf([rot, target, camera, camera.position]);
+      gsap.killTweensOf([rot, target, camera.position]);
+      // Hand the clock back to gsap's own ticker — the post-navigation
+      // handoff overlay tweens keep running after this component is gone.
+      gsap.ticker.add(gsap.updateRoot);
+      gsap.ticker.lagSmoothing(500, 33);
       for (const d of disposables) d.dispose();
       renderer.dispose();
       mount.removeChild(renderer.domElement);
@@ -415,7 +626,7 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
         </p>
       </div>
 
-      {/* HUD caption for the hovered card. */}
+      {/* HUD caption for the hovered cell. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-24 text-center sm:bottom-10">
         <div
           className={`inline-block transition-all duration-300 ${
@@ -438,12 +649,6 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
       <div className="pointer-events-none absolute left-6 top-7 font-mono text-xs uppercase tracking-[0.3em] text-zinc-300">
         Looseleaf
       </div>
-
-      {/* Fly-in fade — gsap drives opacity, then we navigate. */}
-      <div
-        ref={overlayRef}
-        className="pointer-events-none absolute inset-0 bg-paper opacity-0 dark:bg-paper-dark"
-      />
     </div>
   );
 }
