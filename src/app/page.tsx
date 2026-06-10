@@ -9,7 +9,7 @@ import { AnimatedWordmark } from "@/components/AnimatedWordmark";
 import { AmbientOrb } from "@/components/decor/AmbientOrb";
 import { MagneticButton } from "@/components/decor/MagneticButton";
 import { PhotoStrip } from "@/components/decor/PhotoStrip";
-import { HomeFeed } from "@/components/HomeFeed";
+import { HomeView } from "@/components/HomeView";
 import { SearchBar } from "@/components/SearchBar";
 import { LangToggle } from "@/components/LangToggle";
 import { pageToEntry } from "@/lib/feed";
@@ -152,7 +152,7 @@ export default async function Home() {
             </div>
           </FadeIn>
         ) : (
-          <HomeFeed initialEntries={initialEntries} initialCursor={initialCursor} />
+          <HomeView initialEntries={initialEntries} initialCursor={initialCursor} />
         )}
       </main>
 
