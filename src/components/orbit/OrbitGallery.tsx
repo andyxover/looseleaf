@@ -25,10 +25,10 @@ type OrbitGalleryProps = {
 };
 
 const RADIUS = 14; // sphere radius the cell lattice sits on
-const COLS = 12; // cells per full 360° ring
+const COLS = 18; // cells per full 360° ring — small angles keep cells near-flat
 const MAX_ROWS = 4;
-const CELL_PHI = (Math.PI * 2) / COLS; // azimuthal width of a cell
-const CELL_THETA = 0.4; // polar height of a cell (radians)
+const CELL_PHI = (Math.PI * 2) / COLS; // azimuthal width of a cell (20°)
+const CELL_THETA = 0.25; // polar height of a cell — landscape ratio (~1.4)
 const PHOTO_FRACTION = 0.58; // photo patch size relative to its cell
 const DRAG_EASE = 0.075; // lerp factor toward target rotation per frame
 const MOMENTUM_DECAY = 0.94;
@@ -53,12 +53,12 @@ function dateLabel(iso: string): string {
 // date top-left, title top-right, tag chips bottom-left, year bottom-right.
 function makeCellTexture(entry: FeedEntry): THREE.CanvasTexture {
   const W = 1024;
-  const H = 784; // matches the cell patch's arc aspect (~1.31)
+  const H = 731; // matches the cell patch's arc aspect (~1.4)
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d")!;
-  const mono = "500 19px 'JetBrains Mono', ui-monospace, monospace";
+  const mono = "500 21px 'JetBrains Mono', ui-monospace, monospace";
   const ink = "rgba(246, 242, 234, 0.85)";
   const faint = "rgba(246, 242, 234, 0.4)";
   const pad = 26;
@@ -180,7 +180,7 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
     scene.fog = new THREE.FogExp2(0x0c0a09, 0.02); // panels dim toward the edges
 
     const camera = new THREE.PerspectiveCamera(
-      62,
+      55, // modest FOV — wide angles fisheye the lattice into a barrel
       mount.clientWidth / mount.clientHeight,
       0.1,
       80,
@@ -260,7 +260,7 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
 
       gsap.to(cellMat, { opacity: 1, duration: 0.8, ease: "power2.out", delay: (i % COLS) * 0.04 });
 
-      loader.load(coverUrl(entry.cover!, 640, 490), (tex) => {
+      loader.load(coverUrl(entry.cover!, 640, 460), (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = 8;
         tex.wrapS = THREE.RepeatWrapping;
@@ -450,7 +450,7 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
 
       // The camera keeps flying behind the clone so the first beats of the
       // move (before the clone covers the frame) stay directional.
-      const dest = dir.clone().multiplyScalar(RADIUS * 0.985 - 2.9);
+      const dest = dir.clone().multiplyScalar(RADIUS * 0.985 - 2.2);
       const tl = gsap.timeline();
       tl.to(rot, { yaw: aimYaw, pitch: aimPitch, duration: 0.65, ease: "power3.inOut" }, 0)
         .to(target, { yaw: aimYaw, pitch: aimPitch, duration: 0.65, ease: "power3.inOut" }, 0)
@@ -540,12 +540,18 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
     }
     window.addEventListener("keydown", onKey);
 
-    function onResize() {
-      camera.aspect = mount!.clientWidth / mount!.clientHeight;
+    // Observe the container rather than the window — it catches sizes that
+    // settle around mount time (lazy chunk load, viewport emulation) that a
+    // window resize listener can miss.
+    const resizeObserver = new ResizeObserver(() => {
+      const w = mount!.clientWidth;
+      const h = mount!.clientHeight;
+      if (w === 0 || h === 0) return;
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(mount!.clientWidth, mount!.clientHeight);
-    }
-    window.addEventListener("resize", onResize);
+      renderer.setSize(w, h);
+    });
+    resizeObserver.observe(mount);
 
     // --- Frame loop ---------------------------------------------------------
     let rafId = 0;
@@ -582,7 +588,7 @@ export function OrbitGallery({ entries, onExit }: OrbitGalleryProps) {
 
     return () => {
       cancelAnimationFrame(rafId);
-      window.removeEventListener("resize", onResize);
+      resizeObserver.disconnect();
       window.removeEventListener("keydown", onKey);
       el.removeEventListener("pointerdown", onPointerDown);
       el.removeEventListener("pointermove", onPointerMove);
