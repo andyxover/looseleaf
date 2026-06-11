@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import Link from "next/link";
 import { Plus, LogIn, LogOut } from "lucide-react";
 
@@ -5,11 +7,11 @@ import { prisma } from "@/lib/prisma";
 import { isOwner, isEditor } from "@/lib/owner";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 import { FadeIn } from "@/components/Reveal";
-import { AnimatedWordmark } from "@/components/AnimatedWordmark";
-import { AmbientOrb } from "@/components/decor/AmbientOrb";
 import { MagneticButton } from "@/components/decor/MagneticButton";
 import { PhotoStrip } from "@/components/decor/PhotoStrip";
 import { HomeView } from "@/components/HomeView";
+import { LeafHero } from "@/components/hero/LeafHero";
+import { ArchiveShelf } from "@/components/hero/ArchiveShelf";
 import { SearchBar } from "@/components/SearchBar";
 import { LangToggle } from "@/components/LangToggle";
 import { pageToEntry } from "@/lib/feed";
@@ -52,17 +54,16 @@ export default async function Home() {
       ? rows[rows.length - 1].entryDate.toISOString()
       : null;
 
+  const heroLeaves = initialEntries
+    .filter((e) => e.cover)
+    .slice(0, 10)
+    .map((e) => ({ id: e.id, src: e.cover!, title: e.title, date: e.date }));
+  const filmSrc = fs.existsSync(path.join(process.cwd(), "public", "hero-film.mp4"))
+    ? "/hero-film.mp4"
+    : null;
+
   return (
     <div className="relative z-10">
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[55vh] overflow-hidden">
-        <AmbientOrb
-          variant="warm"
-          size={520}
-          className="left-1/2 top-0 -translate-x-1/2 opacity-40"
-          duration={26}
-        />
-      </div>
-
       {/* Minimal nav — a quiet hairline bar; the brand statement lives in the hero below. */}
       <header className="border-b border-zinc-200/70 dark:border-zinc-800/70">
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
@@ -117,26 +118,20 @@ export default async function Home() {
         </nav>
       </header>
 
-      {/* Hero — one centered focal point with room to breathe. */}
-      <section className="mx-auto max-w-5xl px-6 pt-24 pb-16 text-center sm:pt-32 sm:pb-24">
-        <h1 className="font-serif text-[3.5rem] font-black leading-[0.95] tracking-[-0.04em] sm:text-8xl lg:text-[7.5rem]">
-          <AnimatedWordmark />
-        </h1>
-        <FadeIn delay={0.3}>
-          <p className="mx-auto mt-8 max-w-xl text-balance text-lg leading-relaxed text-zinc-500 dark:text-zinc-400 sm:text-xl">
-            A personal photo journal — everyday moments, laid out like a magazine by machine.
-          </p>
-        </FadeIn>
+      {/* Hero — a pinned 3D room you scroll through: film, leaves, wordmark. */}
+      <LeafHero leaves={heroLeaves} filmSrc={filmSrc}>
+        <p className="mx-auto max-w-xl text-balance text-lg leading-relaxed text-zinc-600 dark:text-zinc-400 sm:text-xl">
+          A personal photo journal — everyday moments, laid out like a magazine
+          by machine.
+        </p>
         {initialEntries.length > 0 && (
-          <FadeIn delay={0.42}>
-            <div className="mx-auto mt-12 max-w-md">
-              <SearchBar />
-            </div>
-          </FadeIn>
+          <div className="pointer-events-auto mx-auto mt-10 max-w-md">
+            <SearchBar />
+          </div>
         )}
-      </section>
+      </LeafHero>
 
-      <main className="mx-auto max-w-6xl px-6 pb-16 pt-4">
+      <main className="mx-auto max-w-6xl px-6 pb-16 pt-20">
         {initialEntries.length === 0 ? (
           <FadeIn delay={0.2}>
             <div className="mt-32 text-center">
@@ -158,17 +153,19 @@ export default async function Home() {
 
       {stripPhotos.length > 0 && (
         <footer className="relative z-10 pb-12">
-          <div className="mx-auto mb-3 max-w-6xl px-6">
-            <div className="flex items-baseline justify-between">
-              <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
-                The archive
-              </div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-400">
-                {stripPhotos.length.toString().padStart(3, "0")} photos
+          <ArchiveShelf>
+            <div className="mx-auto mb-3 max-w-6xl px-6">
+              <div className="flex items-baseline justify-between">
+                <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
+                  The archive
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-400">
+                  {stripPhotos.length.toString().padStart(3, "0")} photos
+                </div>
               </div>
             </div>
-          </div>
-          <PhotoStrip photos={stripPhotos} />
+            <PhotoStrip photos={stripPhotos} />
+          </ArchiveShelf>
         </footer>
       )}
     </div>

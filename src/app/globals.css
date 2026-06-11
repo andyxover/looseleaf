@@ -26,6 +26,23 @@ html {
   scroll-behavior: smooth;
 }
 
+/* The 3D scenes (hero leaves, ghost month names, wind shear) push transforms
+   wide of the column; clip sideways without breaking vertical scrolling. */
+html, body {
+  overflow-x: clip;
+}
+
+/* Giant outlined type for parallax ghosts — fill transparent, hairline stroke. */
+.ghost-stroke {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgb(24 24 27 / 0.16);
+}
+@media (prefers-color-scheme: dark) {
+  .ghost-stroke {
+    -webkit-text-stroke-color: rgb(244 244 245 / 0.13);
+  }
+}
+
 .font-serif {
   font-family: var(--font-serif);
   font-optical-sizing: auto;

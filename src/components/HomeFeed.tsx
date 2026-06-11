@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { type FeedEntry, type Spread, buildSpreads } from "@/lib/feed";
 import { loadMoreEntries } from "@/app/feed-actions";
 
+import { WindShear } from "@/components/WindShear";
 import { FeaturedHero } from "@/components/spreads/FeaturedHero";
 import { MonthHeader } from "@/components/spreads/MonthHeader";
 import { MagazineSpread } from "@/components/spreads/MagazineSpread";
@@ -58,8 +59,9 @@ export function HomeFeed({
   }, [load]);
 
   return (
-    <div className="space-y-2">
-      {spreads.map((s, i) => {
+    <WindShear>
+      <div className="space-y-2">
+        {spreads.map((s, i) => {
         switch (s.type) {
           case "featured":
             return <FeaturedHero key={`f-${i}`} entry={s.entry} />;
@@ -78,24 +80,25 @@ export function HomeFeed({
         }
       })}
 
-      <div
-        ref={sentinelRef}
-        className="flex items-center justify-center py-16"
-        aria-hidden
-      >
-        {loading ? (
-          <div className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
-            <Loader2 className="size-4 animate-spin" />
-            Loading more…
-          </div>
-        ) : done ? (
-          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
-            ✦ End of archive ✦
-          </div>
-        ) : (
-          <div className="h-12" />
-        )}
+        <div
+          ref={sentinelRef}
+          className="flex items-center justify-center py-16"
+          aria-hidden
+        >
+          {loading ? (
+            <div className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
+              <Loader2 className="size-4 animate-spin" />
+              Loading more…
+            </div>
+          ) : done ? (
+            <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
+              ✦ End of archive ✦
+            </div>
+          ) : (
+            <div className="h-12" />
+          )}
+        </div>
       </div>
-    </div>
+    </WindShear>
   );
 }

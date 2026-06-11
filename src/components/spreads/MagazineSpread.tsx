@@ -24,11 +24,16 @@ export function MagazineSpread({ entries }: { entries: FeedEntry[] }) {
         return (
           <motion.article
             key={entry.id}
-            initial={reduced ? false : { opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={reduced ? false : { opacity: 0, y: 72, rotateX: 16, scale: 0.985 }}
+            whileInView={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
             viewport={{ once: true, margin: "0px 0px -10% 0px" }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="group relative"
+            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            style={
+              reduced
+                ? undefined
+                : { transformPerspective: 1400, transformOrigin: "50% 100%" }
+            }
+            className="group relative will-change-transform"
           >
             <Link href={`/journal/${entry.id}`} className="block">
               <div className="grid gap-8 sm:grid-cols-12 sm:gap-12">
