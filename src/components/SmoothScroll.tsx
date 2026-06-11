@@ -2,6 +2,12 @@
 
 import { useEffect } from "react";
 import Lenis from "lenis";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
 
 export function SmoothScroll() {
   useEffect(() => {
@@ -16,6 +22,10 @@ export function SmoothScroll() {
       smoothWheel: true,
     });
 
+    // Pinned/scrubbed scenes (the hero) must re-measure on every smoothed
+    // frame, not just on native scroll events, or they lag the easing.
+    lenis.on("scroll", ScrollTrigger.update);
+
     let rafId = 0;
     function raf(time: number) {
       lenis.raf(time);
@@ -25,6 +35,7 @@ export function SmoothScroll() {
 
     return () => {
       cancelAnimationFrame(rafId);
+      lenis.off("scroll", ScrollTrigger.update);
       lenis.destroy();
     };
   }, []);
