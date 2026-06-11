@@ -22,6 +22,9 @@ import { coverUrl } from "@/lib/cover";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
+  // Phones resize the viewport when the URL bar collapses; refreshing the
+  // pin mid-scroll yanks the scroll position. Ignore those resizes.
+  ScrollTrigger.config({ ignoreMobileResize: true });
 }
 
 export type HeroLeaf = {

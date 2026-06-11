@@ -22,8 +22,12 @@ html, body {
 }
 
 html {
-  /* Lenis handles smooth scroll on most surfaces. Native fallback for in-page anchors. */
-  scroll-behavior: smooth;
+  /* MUST stay auto: CSS smooth scrolling turns ScrollTrigger's instant
+     pin/refresh scroll writes into animated ones, which land late and fight
+     the user's wheel — the scroll "bounces back" inside the pinned hero.
+     JS-initiated smooth scrolls (scrollTo/scrollIntoView with behavior:
+     "smooth") still animate fine. */
+  scroll-behavior: auto;
 }
 
 /* The 3D scenes (hero leaves, ghost month names, wind shear) push transforms
