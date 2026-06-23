@@ -28,6 +28,11 @@ html {
      JS-initiated smooth scrolls (scrollTo/scrollIntoView with behavior:
      "smooth") still animate fine. */
   scroll-behavior: auto;
+  /* Kill the macOS/iOS elastic rubber-band at the scroll boundaries. That
+     overscroll springs the pinned hero back when you push past the top (or
+     flick down hard), which reads as the "bouncing back" jank. `none` clamps
+     scrolling to the real range so the pin tracks cleanly edge to edge. */
+  overscroll-behavior-y: none;
 }
 
 /* The 3D scenes (hero leaves, ghost month names, wind shear) push transforms

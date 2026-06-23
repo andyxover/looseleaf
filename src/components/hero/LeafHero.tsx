@@ -177,9 +177,10 @@ export function LeafHero({
           trigger: root,
           start: "top top",
           end: "+=260%",
-          // Light scrub smooths the playhead without lagging the wheel — 1.1
-          // felt rubber-bandy at the top, where input and motion must track.
-          scrub: 0.5,
+          // Direct scrub: Lenis already smooths the scroll stream, so map it
+          // 1:1 to the timeline. A numeric scrub here would double-smooth and
+          // reintroduce the catch-up "bounce" at the top.
+          scrub: true,
           pin: true,
           anticipatePin: 1,
           onUpdate: (self) => {
