@@ -116,29 +116,45 @@ export function LeafHero({
       gsap.set(outro, { autoAlpha: 0, y: 28 });
 
       // --- Entrance: the room assembles -------------------------------------
-      gsap.from(letters, {
-        y: 70,
-        autoAlpha: 0,
-        rotation: -6,
-        stagger: 0.05,
-        duration: 0.7,
-        ease: "power3.out",
-        delay: 0.15,
-      });
-      gsap.from(period, {
-        scale: 0,
-        autoAlpha: 0,
-        duration: 0.5,
-        ease: "back.out(3)",
-        delay: 0.15 + 0.05 * WORD.length,
-      });
-      gsap.from(leafWraps, {
-        autoAlpha: 0,
-        duration: 1.1,
-        stagger: 0.07,
-        ease: "power2.out",
-        delay: 0.3,
-      });
+      // fromTo (not from): under React StrictMode / Fast-Refresh the effect can
+      // remount mid-entrance, and a plain from() would capture the current
+      // (hidden) state as its END target — animating hidden→hidden and leaving
+      // the hero blank. Explicit end values make the entrance deterministic.
+      gsap.fromTo(
+        letters,
+        { y: 70, autoAlpha: 0, rotation: -6 },
+        {
+          y: 0,
+          autoAlpha: 1,
+          rotation: 0,
+          stagger: 0.05,
+          duration: 0.7,
+          ease: "power3.out",
+          delay: 0.15,
+        },
+      );
+      gsap.fromTo(
+        period,
+        { scale: 0, autoAlpha: 0 },
+        {
+          scale: 1,
+          autoAlpha: 1,
+          duration: 0.5,
+          ease: "back.out(3)",
+          delay: 0.15 + 0.05 * WORD.length,
+        },
+      );
+      gsap.fromTo(
+        leafWraps,
+        { autoAlpha: 0 },
+        {
+          autoAlpha: 1,
+          duration: 1.1,
+          stagger: 0.07,
+          ease: "power2.out",
+          delay: 0.3,
+        },
+      );
 
       // Idle bob lives on the inner card so it never fights the scrubbed
       // transform on the wrapper.
@@ -161,7 +177,9 @@ export function LeafHero({
           trigger: root,
           start: "top top",
           end: "+=260%",
-          scrub: 1.1,
+          // Light scrub smooths the playhead without lagging the wheel — 1.1
+          // felt rubber-bandy at the top, where input and motion must track.
+          scrub: 0.5,
           pin: true,
           anticipatePin: 1,
           onUpdate: (self) => {
