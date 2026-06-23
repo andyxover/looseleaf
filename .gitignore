@@ -53,3 +53,6 @@ next-env.d.ts
 /dev.db
 /dev.db-journal
 /prisma/migrations-sqlite-backup
+
+# local Claude Code tooling (launch config, worktrees)
+.claude/
