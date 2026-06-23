@@ -45,6 +45,8 @@ next-env.d.ts
 
 # uploaded photos (local prototype only)
 /public/uploads
+# raw import source material (Facebook archive originals — already on Cloudinary)
+/import-source
 # sqlite (legacy, pre-Postgres)
 /prisma/*.db
 /prisma/*.db-journal
