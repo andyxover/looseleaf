@@ -9,6 +9,7 @@ import { createPage, createPageManual, type CreatePageState } from "./actions";
 import { compressImage } from "@/lib/compress";
 import { uploadToCloudinary } from "@/lib/cloudinary-client";
 import { RichEditor } from "@/components/RichEditor";
+import { MAX_PHOTOS } from "@/lib/limits";
 
 type Preview = {
   localUrl: string;
@@ -80,9 +81,9 @@ export default function CreateForm() {
     const incoming = Array.from(files).filter((f) =>
       f.type.startsWith("image/"),
     );
-    // Reserve slots in state so we don't pass 100 before counting.
+    // Reserve slots in state so we don't pass the cap before counting.
     const baseIdx = previews.length;
-    const room = Math.max(0, 100 - baseIdx);
+    const room = Math.max(0, MAX_PHOTOS - baseIdx);
     const toProcess = incoming.slice(0, room);
 
     // Pre-add placeholders so the UI shows the row immediately.
@@ -200,7 +201,7 @@ export default function CreateForm() {
                 : "Click to add photos"}
             </div>
             <div className="text-sm text-zinc-500">
-              JPG, PNG, WebP, or GIF — up to 100. Skip to auto-generate an illustration.
+              JPG, PNG, WebP, or GIF — up to {MAX_PHOTOS}. Skip to auto-generate an illustration.
             </div>
           </div>
           <input

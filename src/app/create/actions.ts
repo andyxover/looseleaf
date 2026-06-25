@@ -14,9 +14,9 @@ import { isEditor } from "@/lib/owner";
 import { translateLayout } from "@/lib/translate";
 import type { Layout } from "@/lib/layout";
 import { extractCloudinaryPublicIds, htmlToPlainText } from "@/lib/richtext";
+import { MAX_PHOTOS } from "@/lib/limits";
 
 const MODEL = "claude-sonnet-4-6";
-const MAX_PHOTOS = 100;
 const AI_MAX_EDGE = 1568;
 const IMAGE_MODEL = process.env.IMAGE_MODEL ?? "gpt-image-2";
 
