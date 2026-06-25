@@ -18,6 +18,15 @@ import { MAX_PHOTOS } from "@/lib/limits";
 
 const MODEL = "claude-sonnet-4-6";
 const AI_MAX_EDGE = 1568;
+// How many photos to actually send to Claude for the layout design. Every
+// uploaded photo is still saved to the entry; this only caps the vision call.
+// Sending all of them (200 base64 JPEGs) overflows Anthropic's 32MB / 100-image
+// request limits → 413 request_too_large. Claude designs the magazine spread
+// from this sample (the first N, so its 1-based indices map straight onto the
+// saved rows); the remaining photos appear in the entry's "Photos in this
+// entry" footer strip. 36 is comfortably under the API ceiling and matches the
+// largest photo entries that already create successfully today.
+const AI_LAYOUT_SAMPLE = 36;
 const IMAGE_MODEL = process.env.IMAGE_MODEL ?? "gpt-image-2";
 
 const ILLUSTRATION_STYLE = [
@@ -201,7 +210,10 @@ export async function createPage(
 
   let pageId: string;
   try {
-    const saved: { publicId: string; width: number; height: number; aiBase64: string }[] = [];
+    // `saved` is every photo we persist as a Photo row (the full archive).
+    // `visionImages` is the smaller base64 sample we actually send to Claude.
+    const saved: { publicId: string; width: number; height: number }[] = [];
+    const visionImages: string[] = [];
 
     // Zero-photo path: server-side generate one illustration via gpt-image-2.
     if (photoRefs.length === 0) {
@@ -231,32 +243,44 @@ export async function createPage(
         publicId: upload.publicId,
         width: upload.width,
         height: upload.height,
-        aiBase64: illustration.toString("base64"),
       });
+      visionImages.push(illustration.toString("base64"));
     } else {
-      // Fetch a 1568px-edge JPEG of each photo from Cloudinary for the Claude
-      // vision call. Cloudinary edge resizes for us — no sharp on the function.
-      for (const ref of photoRefs) {
-        const aiBase64 = await fetchAsBase64(cloudinaryAiUrl(ref.publicId));
-        saved.push({ ...ref, aiBase64 });
+      // Persist every uploaded photo to the entry.
+      saved.push(
+        ...photoRefs.map((r) => ({
+          publicId: r.publicId,
+          width: r.width,
+          height: r.height,
+        })),
+      );
+      // But only fetch + send a sample to Claude for the layout design. The
+      // first N keeps the 1-based indices it returns aligned with the saved
+      // rows. Fetch the 1568px-edge JPEGs from Cloudinary (edge-resized, so no
+      // sharp on the function).
+      const sample = photoRefs.slice(0, AI_LAYOUT_SAMPLE);
+      for (const ref of sample) {
+        visionImages.push(await fetchAsBase64(cloudinaryAiUrl(ref.publicId)));
       }
     }
 
     const userContent: ContentBlockParam[] = [];
-    saved.forEach((photo, i) => {
+    visionImages.forEach((data, i) => {
       userContent.push({ type: "text", text: `Photo ${i + 1}:` });
       userContent.push({
         type: "image",
-        source: {
-          type: "base64",
-          media_type: "image/jpeg",
-          data: photo.aiBase64,
-        },
+        source: { type: "base64", media_type: "image/jpeg", data },
       });
     });
+    // When the upload exceeds the sample size, tell Claude it's designing from a
+    // representative subset so it doesn't narrate a count it can't see.
+    const sampleNote =
+      photoRefs.length > visionImages.length
+        ? ` You are shown the first ${visionImages.length} of ${photoRefs.length} photos from this day — design a strong layout from these; the rest are archived with the entry automatically.`
+        : "";
     userContent.push({
       type: "text",
-      text: `Summary of what happened (from the journaler):\n\n${summary}\n\nPlease design the layout now using submit_layout.`,
+      text: `Summary of what happened (from the journaler):\n\n${summary}\n\nPlease design the layout now using submit_layout.${sampleNote}`,
     });
 
     const response = await anthropic.messages.create({
