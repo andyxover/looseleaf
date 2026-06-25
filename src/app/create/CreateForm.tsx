@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Loader2, X, Upload, ArrowLeft } from "lucide-react";
@@ -10,6 +10,14 @@ import { compressImage } from "@/lib/compress";
 import { uploadToCloudinary } from "@/lib/cloudinary-client";
 import { RichEditor } from "@/components/RichEditor";
 import { MAX_PHOTOS } from "@/lib/limits";
+import {
+  loadDraft,
+  saveDraft,
+  clearDraft,
+  draftHasContent,
+  markPendingCreate,
+  clearPendingCreate,
+} from "@/lib/draft";
 
 type Preview = {
   localUrl: string;
@@ -37,6 +45,51 @@ export default function CreateForm() {
   const [mode, setMode] = useState<"ai" | "manual">("ai");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [restored, setRestored] = useState(false);
+  // Bumped on restore to remount RichEditor with the recovered HTML — TipTap
+  // only reads initialHTML once, on mount.
+  const [editorKey, setEditorKey] = useState(0);
+  const hydratedRef = useRef(false);
+  const submittingRef = useRef(false);
+
+  // Restore a saved draft on first mount (after hydration, to avoid an SSR
+  // mismatch). Empty drafts are ignored.
+  useEffect(() => {
+    const d = loadDraft();
+    if (d && draftHasContent(d)) {
+      setMode(d.mode);
+      setTitle(d.title);
+      setSummary(d.summary);
+      setBody(d.body);
+      if (d.entryDate) setEntryDate(d.entryDate);
+      if (d.body.trim()) setEditorKey((k) => k + 1);
+      setRestored(true);
+    }
+    hydratedRef.current = true;
+  }, []);
+
+  // Autosave the draft as the user types (debounced). Paused during submit so a
+  // successful create — which clears the draft on the destination page — isn't
+  // immediately re-saved.
+  useEffect(() => {
+    if (!hydratedRef.current || submittingRef.current) return;
+    const draft = { mode, title, summary, body, entryDate };
+    const t = setTimeout(() => {
+      if (draftHasContent(draft)) saveDraft(draft);
+      else clearDraft();
+    }, 600);
+    return () => clearTimeout(t);
+  }, [mode, title, summary, body, entryDate]);
+
+  function discardDraft() {
+    clearDraft();
+    setTitle("");
+    setSummary("");
+    setBody("");
+    setEntryDate(todayLocal());
+    setEditorKey((k) => k + 1);
+    setRestored(false);
+  }
 
   const inFlight = previews.filter(
     (p) => p.status === "preparing" || p.status === "uploading",
@@ -56,7 +109,15 @@ export default function CreateForm() {
       if (!title.trim()) return { error: "Give your entry a title." };
       // Inline images live in the body HTML; the server extracts them.
       formData.set("body", body);
-      return createPageManual(prev, formData);
+      // Keep the draft saved through the request; on success the create
+      // redirects to /journal/[id], where the marker clears it. Reaching past
+      // the await means it returned an error, so re-enable autosave.
+      submittingRef.current = true;
+      markPendingCreate();
+      const res = await createPageManual(prev, formData);
+      submittingRef.current = false;
+      clearPendingCreate();
+      return res;
     }
 
     if (!summary.trim()) return { error: "Tell me what happened." };
@@ -71,7 +132,12 @@ export default function CreateForm() {
       );
     }
     formData.set("summary", summary);
-    return createPage(prev, formData);
+    submittingRef.current = true;
+    markPendingCreate();
+    const res = await createPage(prev, formData);
+    submittingRef.current = false;
+    clearPendingCreate();
+    return res;
   }
 
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -187,6 +253,19 @@ export default function CreateForm() {
         </button>
       </div>
 
+      {restored && (
+        <div className="mt-6 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <span>Restored your unsaved draft.</span>
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="shrink-0 font-medium underline underline-offset-2 hover:no-underline"
+          >
+            Discard
+          </button>
+        </div>
+      )}
+
       <form action={formAction} className="mt-8 space-y-8">
         {mode === "ai" && (
           <label
@@ -300,7 +379,7 @@ export default function CreateForm() {
         ) : (
           <div>
             <label className="mb-2 block text-sm font-medium">Your story</label>
-            <RichEditor onChange={setBody} />
+            <RichEditor key={editorKey} initialHTML={body} onChange={setBody} />
           </div>
         )}
 

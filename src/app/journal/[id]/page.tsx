@@ -10,6 +10,7 @@ import { MagazinePageWithFooter } from "@/components/MagazinePage";
 import { LangToggle } from "@/components/LangToggle";
 import { PostEngagement } from "@/components/PostEngagement";
 import { ViewCounter } from "@/components/ViewCounter";
+import { ClearCreateDraft } from "@/components/ClearCreateDraft";
 import { ensureDimensions } from "@/lib/ensure-dimensions";
 import { isEditor, isOwner } from "@/lib/owner";
 import { getLang, resolveLayoutJson } from "@/lib/lang";
@@ -109,6 +110,7 @@ export default async function JournalPage({
         />
       )}
 
+      <ClearCreateDraft />
       <ViewCounter pageId={id} skip={editor} />
       <PostEngagement
         pageId={id}
