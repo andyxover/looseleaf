@@ -17,7 +17,11 @@ import { extractCloudinaryPublicIds, htmlToPlainText } from "@/lib/richtext";
 import { MAX_PHOTOS } from "@/lib/limits";
 
 const MODEL = "claude-sonnet-4-6";
-const AI_MAX_EDGE = 1568;
+// Edge size for the photos sent to Claude's vision call. 1280px is ample for
+// layout + caption decisions and keeps the request well under Anthropic's 32MB
+// limit even at the AI_LAYOUT_SAMPLE count below (1568px left too little
+// headroom for detail-heavy batches).
+const AI_MAX_EDGE = 1280;
 // How many photos to actually send to Claude for the layout design. Every
 // uploaded photo is still saved to the entry; this only caps the vision call.
 // Sending all of them (200 base64 JPEGs) overflows Anthropic's 32MB / 100-image
@@ -100,8 +104,8 @@ type IncomingPhoto = { publicId: string; width: number; height: number };
 
 function cloudinaryAiUrl(publicId: string): string {
   const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  // c_limit + w/h = preserve aspect, no upscale. q_auto + f_jpg keeps it small.
-  return `https://res.cloudinary.com/${cloud}/image/upload/c_limit,w_${AI_MAX_EDGE},h_${AI_MAX_EDGE},q_85,f_jpg/${publicId}`;
+  // c_limit + w/h = preserve aspect, no upscale. q_80 + f_jpg keeps it small.
+  return `https://res.cloudinary.com/${cloud}/image/upload/c_limit,w_${AI_MAX_EDGE},h_${AI_MAX_EDGE},q_80,f_jpg/${publicId}`;
 }
 
 async function fetchAsBase64(url: string): Promise<string> {
