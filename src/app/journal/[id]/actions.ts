@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { requireEditor, isEditor, isOwner } from "@/lib/owner";
 import type { Block, Layout } from "@/lib/layout";
 import { extractCloudinaryPublicIds, htmlToPlainText } from "@/lib/richtext";
+import { translateAndStore } from "@/lib/translate";
 
 type IncomingPhoto = { publicId: string; width: number; height: number };
 
@@ -39,12 +41,15 @@ export async function updatePageLayout(
       title: layout.title,
       layoutJson: JSON.stringify(layout),
       // Edits invalidate the cached translations — clear them so readers see
-      // the fresh canonical until the translate script refills them.
+      // the fresh canonical until the re-translation below lands.
       layoutEn: null,
       layoutZh: null,
       ...(parsedEntryDate ? { entryDate: parsedEntryDate } : {}),
     },
   });
+  // Regenerate both translations after the response so the save stays fast
+  // and the language toggle keeps working on edited entries.
+  after(() => translateAndStore(id, layout));
   revalidatePath(`/journal/${id}`);
   revalidatePath("/");
 }
@@ -101,6 +106,7 @@ export async function updateRichPost(
     });
   });
 
+  after(() => translateAndStore(id, layout));
   revalidatePath(`/journal/${id}`);
   revalidatePath("/");
 }
@@ -188,9 +194,12 @@ export async function addPhotosToPage(
   layout.blocks.push(...newBlocks);
   await prisma.page.update({
     where: { id: pageId },
-    data: { layoutJson: JSON.stringify(layout) },
+    // The stored translations no longer match the block list — clear them and
+    // regenerate below so the new photos show up in both languages.
+    data: { layoutJson: JSON.stringify(layout), layoutEn: null, layoutZh: null },
   });
 
+  after(() => translateAndStore(pageId, layout));
   revalidatePath(`/journal/${pageId}`);
   revalidatePath("/");
   return { error: null };

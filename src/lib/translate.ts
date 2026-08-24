@@ -1,4 +1,5 @@
 import { anthropic } from "@/lib/anthropic";
+import { prisma } from "@/lib/prisma";
 import type { Layout, Block } from "@/lib/layout";
 
 export type Lang = "en" | "zh";
@@ -25,6 +26,9 @@ function collectStrings(layout: Layout): string[] {
         break;
       case "quote":
         out.push(b.text ?? "", b.attribution ?? "");
+        break;
+      case "richtext":
+        out.push(b.html ?? "");
         break;
     }
   }
@@ -56,6 +60,9 @@ function applyStrings(layout: Layout, s: string[]): Layout {
         b.text = s[i++] ?? b.text;
         b.attribution = s[i++] || undefined;
         break;
+      case "richtext":
+        b.html = s[i++] ?? b.html;
+        break;
     }
   }
   return next;
@@ -69,7 +76,7 @@ Rules:
 - Sound native and editorial — localize idioms, tone, and rhythm. Never word-for-word.
 - Translate each segment FAITHFULLY at the same scope and length. A title stays a one-line title; a caption stays a caption. NEVER expand a short headline into paragraphs, continue the text, invent new sentences, or echo the original alongside the translation.
 - Keep "TCS" and English proper nouns intact (program names, people, places, grade labels like "G8" / "Grade 11", "Terry Fox", university names).
-- Preserve markdown emphasis (*italics*) and emoji exactly where they appear.
+- Preserve markdown emphasis (*italics*) and emoji exactly where they appear. If a segment is HTML, keep every tag and attribute intact — translate only the human-readable text between tags.
 - If a segment is ALREADY in ${target}, return it lightly polished — do not re-translate it awkwardly.
 - Empty strings must stay empty strings.
 - Do not add, drop, merge, or reorder segments. Output length MUST equal input length.`;
@@ -158,7 +165,7 @@ async function translateOne(text: string, target: string): Promise<string> {
   const resp = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 4096,
-    system: `You translate discrete CMS text segments into natural, native ${target}. Each request is ONE segment (a title, heading, caption, quote, or paragraph). Translate ONLY that segment, faithfully and at the same length — never expand a headline into an article, never continue the text, never append the source. Keep "TCS", English proper nouns, markdown *emphasis*, and emoji intact. Submit via the tool.`,
+    system: `You translate discrete CMS text segments into natural, native ${target}. Each request is ONE segment (a title, heading, caption, quote, or paragraph). Translate ONLY that segment, faithfully and at the same length — never expand a headline into an article, never continue the text, never append the source. Keep "TCS", English proper nouns, markdown *emphasis*, HTML tags/attributes, and emoji intact. Submit via the tool.`,
     tools: [oneTool],
     tool_choice: { type: "tool", name: "submit_translation" },
     messages: [{ role: "user", content: text }],
@@ -194,4 +201,25 @@ export async function translateLayout(
     }
   }
   return applyStrings(layout, segments);
+}
+
+// Translate a page's layout into both languages and persist the results.
+// Best-effort: logs and returns on failure so callers can fire-and-forget it
+// (e.g. from next/server's after()) without wrapping in try/catch.
+export async function translateAndStore(
+  pageId: string,
+  layout: Layout,
+): Promise<void> {
+  try {
+    const [en, zh] = await Promise.all([
+      translateLayout(layout, "en"),
+      translateLayout(layout, "zh"),
+    ]);
+    await prisma.page.update({
+      where: { id: pageId },
+      data: { layoutEn: JSON.stringify(en), layoutZh: JSON.stringify(zh) },
+    });
+  } catch (e) {
+    console.warn(`translateAndStore failed for page ${pageId}:`, e);
+  }
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import OpenAI from "openai";
 import type {
   ContentBlockParam,
@@ -11,7 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { anthropic } from "@/lib/anthropic";
 import { uploadImage } from "@/lib/storage";
 import { isEditor } from "@/lib/owner";
-import { translateLayout } from "@/lib/translate";
+import { translateLayout, translateAndStore } from "@/lib/translate";
 import type { Layout } from "@/lib/layout";
 import { extractCloudinaryPublicIds, htmlToPlainText } from "@/lib/richtext";
 import { MAX_PHOTOS } from "@/lib/limits";
@@ -115,9 +116,10 @@ async function fetchAsBase64(url: string): Promise<string> {
   return buf.toString("base64");
 }
 
-// Manual creation: no AI, no API spend. Stores the author's rich body (from the
+// Manual creation: no AI layout call. Stores the author's rich body (from the
 // Tiptap editor) as a single `richtext` block; inline images become Photo rows
-// (first = cover) so the feed + archive work. Translation skipped.
+// (first = cover) so the feed + archive work. Translations are generated after
+// the response so the language toggle works on manual posts too.
 export async function createPageManual(
   _prev: CreatePageState,
   formData: FormData,
@@ -158,6 +160,7 @@ export async function createPageManual(
       },
     });
     pageId = page.id;
+    after(() => translateAndStore(page.id, layout));
   } catch (e) {
     console.error("createPageManual failed:", e);
     return {
@@ -337,6 +340,11 @@ export async function createPage(
       },
     });
     pageId = page.id;
+    // If the inline translation hiccupped, retry once after the response so
+    // the entry doesn't stay untranslated until someone runs the backfill.
+    if (!layoutEn || !layoutZh) {
+      after(() => translateAndStore(page.id, layout));
+    }
   } catch (e) {
     console.error("createPage failed:", e);
     return {
